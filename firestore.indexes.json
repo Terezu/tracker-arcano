@@ -1,0 +1,16 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "partidas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "data", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "versoes", "fieldPath": "validacao", "indexes": [] },
+    { "collectionGroup": "versoes", "fieldPath": "texto", "indexes": [] }
+  ]
+}
