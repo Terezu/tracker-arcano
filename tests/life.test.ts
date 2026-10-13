@@ -3,11 +3,25 @@ import assert from "node:assert/strict";
 import { addCommander, alerts, changeController, changeCounters, createSession, palette, randomFace, restartSession, rotatePlayer, textColor, undoLast } from "../src/life/domain.ts";
 import { clearSession, decodeSession, readSession, saveSession, sessionKey } from "../src/life/storage.ts";
 import type { LifeSession } from "../src/life/domain.ts";
+import { initialOrientation } from "../src/life/presentation.ts";
 const stamp = "2026-10-13T18:00:00.000Z";
 const setup = (count = 2, initialLife = 20) => createSession({ initialLife, poisonLimit:10, players:palette.slice(0,count).map((p,i) => ({name:`  Convidado ${i+1}  `,color:p[1]})), deckId:"my-deck" },"session-1");
 let sequence = 0;
 const change = (s:LifeSession,type:"life"|"poison"|"combat"|"correction",value:number,playerId="p1",commanderId?:string) => changeCounters(s,{type,value,playerId,commanderId},`event-${++sequence}`,stamp);
 const undo = (s:LifeSession) => undoLast(s,`undo-${++sequence}`,stamp);
+
+test("orientação inicial segue a posição sem alterar contadores; orientação manual persiste", () => {
+  for (const [count, stacked, expected] of [[2,true,[true,false]], [2,false,[false,false]], [3,true,[false,false,false]], [4,true,[true,true,false,false]], [4,false,[true,true,false,false]]] as const) {
+    const original = setup(count);
+    const session = initialOrientation(original, stacked);
+    assert.deepEqual(session.players.map(p => p.rotated), expected);
+    assert.ok(original.players.every(p => !p.rotated));
+    assert.deepEqual(session.players.map(p => [p.name,p.color,p.life,p.poison]), original.players.map(p => [p.name,p.color,p.life,p.poison]));
+    const manual = rotatePlayer(session,"p1");
+    assert.deepEqual(decodeSession(JSON.stringify(manual)),manual);
+    assert.deepEqual(restartSession(manual,"restart").players.map(p=>p.rotated),manual.players.map(p=>p.rotated));
+  }
+});
 
 test("configuração de 2/3/4 jogadores e 20/30/40 vidas, nomes e dez cores", () => {
   for(const count of [2,3,4]) for(const life of [20,30,40]) {

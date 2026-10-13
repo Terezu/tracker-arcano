@@ -45,6 +45,16 @@
 .life-focused .life-board, .life-root:fullscreen .life-board { min-height: min(640px, calc(100svh - 140px)); }
 .life-session-actions { margin: 12px 0; }
 .life-isolated-note { margin-top: 24px; }
+.life-install { margin: 8px 0; padding: 8px 12px; border: 1px solid #293750; border-radius: 10px; font-size: .85rem; }
+.life-install summary { padding: 12px 0; cursor: pointer; }
+.life-focused, .life-root:fullscreen { height: 100vh; height: 100dvh; box-sizing: border-box; }
+.life-focused .life-topbar, .life-root:fullscreen .life-topbar { gap: 4px 8px; margin-bottom: 8px; }
+.life-focused .life-topbar h2, .life-root:fullscreen .life-topbar h2 { font-size: 1rem; }
+.life-focused .life-session-actions, .life-root:fullscreen .life-session-actions { margin: 8px 0; }
+.life-focused.life-running .life-isolated-note, .life-root:fullscreen.life-running .life-isolated-note { display: none; }
+.life-focused .life-board, .life-root:fullscreen .life-board {
+  min-height: max(420px, var(--life-board-space, calc(100dvh - 132px - env(safe-area-inset-top) - env(safe-area-inset-bottom))));
+}
 @media (max-width: 800px) {
   .life-player-configs { grid-template-columns: minmax(0, 1fr); }
   .life-root .life-player button { min-width: 44px; max-width: none; }
@@ -64,5 +74,6 @@
 }
 @media (orientation: landscape) {
   .life-board.players-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .life-focused .life-board, .life-root:fullscreen .life-board { min-height: calc(100svh - 140px); }
+  .life-focused .life-board, .life-root:fullscreen .life-board { min-height: max(420px, var(--life-board-space, calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)))); }
+  .life-focused .life-board.players-2, .life-root:fullscreen .life-board.players-2 { min-height: max(210px, var(--life-board-space, calc(100dvh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)))); }
 }

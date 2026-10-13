@@ -148,7 +148,7 @@ test(
         }
         res.setHeader(
           "Content-Type",
-          pathname.endsWith(".js") ? "text/javascript" : pathname.endsWith(".html") ? "text/html" : pathname.endsWith(".webmanifest") ? "application/manifest+json" : pathname.endsWith(".svg") ? "image/svg+xml" : "text/css",
+          pathname.endsWith(".js") ? "text/javascript" : pathname.endsWith(".html") ? "text/html" : pathname.endsWith(".webmanifest") ? "application/manifest+json" : pathname.endsWith(".svg") ? "image/svg+xml" : pathname.endsWith(".png") ? "image/png" : "text/css",
         );
         res.end(readFileSync(asset));
       });
@@ -436,12 +436,13 @@ test(
         await waitFor('document.querySelector(".life-configuration")');
         await setField('.life-configuration > section select', "2");
         await clickText("Iniciar partida"); await waitFor('document.querySelector(".life-board")');
+        assert.deepEqual(await evaluate(`[...document.querySelectorAll('.life-player-content')].map(p=>p.classList.contains('rotated'))`),[true,false]);
         await evaluate(`(() => { const button = document.querySelector('button[aria-label="Adicionar 1 vida de Jogador 1"]'); for(let i=0;i<50;i++) button.click(); })()`);
         assert.equal(await evaluate(`document.querySelector('output[aria-label="Vida de Jogador 1"]').textContent`),"70");
         await clickText("Desfazer última alteração");
         assert.equal(await evaluate(`document.querySelector('output[aria-label="Vida de Jogador 1"]').textContent`),"69");
         await evaluate(`document.querySelector('button[aria-label="Girar painel de Jogador 1"]').click()`);
-        assert.ok(await evaluate(`document.querySelector('.life-player-content').classList.contains('rotated')`));
+        assert.equal(await evaluate(`document.querySelector('.life-player-content').classList.contains('rotated')`),false);
         await evaluate(`document.querySelector('.life-disclosure > summary').click()`);
         await setField('.life-disclosure form input',"Comandante A");
         await clickText("Adicionar comandante");
@@ -454,6 +455,7 @@ test(
         await command("Page.reload",{},sessionId); await waitFor('document.querySelector("nav")');
         await selectTab("Marcador de Vida"); await waitFor(`document.body.innerText.includes('Sessão anterior')`);
         await clickText("Retomar sessão"); await waitFor('document.querySelector(".life-board")');
+        assert.equal(await evaluate(`document.querySelector('.life-player-content').classList.contains('rotated')`),false);
         assert.equal(await evaluate(`document.querySelector('output[aria-label="Vida de Jogador 2"]').textContent`),"-1");
         await clickText("Desfazer última alteração");
         const restored = await evaluate(`JSON.parse(localStorage.getItem('tracker-arcano.life.v1'))`);
@@ -469,6 +471,46 @@ test(
         await evaluate(`globalThis.confirm = () => true; document.querySelector('.match-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`);
         await waitFor('globalThis.__matchWrites === 1');
       });
+      await t.test("iPhone simulado: fallback imersivo, instrução dispensável e standalone", async () => {
+        const { identifier } = await command("Page.addScriptToEvaluateOnNewDocument", { source: `
+          const mode = new URLSearchParams(location.search).get('iphone');
+          if (mode) {
+            Object.defineProperty(navigator,'userAgent',{configurable:true,value:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'});
+            Object.defineProperty(navigator,'standalone',{configurable:true,value:mode==='standalone'});
+            Object.defineProperty(document,'fullscreenEnabled',{configurable:true,value:mode==='reject'});
+            Element.prototype.requestFullscreen = mode==='reject' ? async () => { throw new Error('Denied'); } : undefined;
+          }
+        ` }, sessionId);
+        try {
+          for (const mode of ['unsupported','standalone','reject']) {
+            await viewport(390,844);
+            await navigate('responsive&iphone='+mode);
+            await evaluate(`localStorage.removeItem('tracker-arcano.life.v1')`);
+            await selectTab('Marcador de Vida');
+            await waitFor('document.querySelector(".life-configuration")');
+            assert.equal(await evaluate(`!!document.querySelector('.life-install')`),mode!=='standalone');
+            if(mode==='unsupported') {
+              await evaluate(`document.querySelector('.life-install summary').click()`);
+              await clickText('Dispensar orientação');
+              assert.equal(await evaluate(`!!document.querySelector('.life-install')`),false);
+            }
+            assert.equal(await evaluate(`!![...document.querySelectorAll('button')].find(b=>b.textContent==='Tela cheia')`),mode==='reject');
+            await clickText('Iniciar partida');
+            await waitFor('document.querySelector(".life-board")');
+            await clickText('Sair do modo imersivo');
+            assert.equal(await evaluate(`document.querySelector('.life-root').classList.contains('life-focused')`),false);
+            await clickText(mode==='reject' ? 'Tela cheia' : 'Modo imersivo');
+            await waitFor(`document.querySelector('.life-root').classList.contains('life-focused')`);
+            assert.equal(await evaluate(`document.body.style.overflow`),'hidden');
+            if(mode==='reject') assert.ok(await evaluate(`document.body.innerText.includes('O navegador recusou tela cheia')`));
+            const board = await evaluate(`(() => {const r=document.querySelector('.life-board').getBoundingClientRect(); return {top:r.top,bottom:r.bottom,height:innerHeight};})()`);
+            assert.ok(board.top>=0 && board.bottom<=board.height+1,'two panels fit the available portrait viewport');
+            await assertLayout('iPhone '+mode);
+            await clickText('Sair do modo imersivo');
+            assert.equal(await evaluate(`document.body.style.overflow`),'');
+          }
+        } finally { await command('Page.removeScriptToEvaluateOnNewDocument',{identifier},sessionId); }
+      });
       await t.test("marcador responsivo: 2/3/4 jogadores em retrato e paisagem", async () => {
         for(const width of [320,375,390,430,768,1024]) for(const count of [2,3,4]) {
           await viewport(width,844);
@@ -479,6 +521,7 @@ test(
           await setField('.life-configuration > section select',String(count));
           await clickText("Iniciar partida"); await waitFor('document.querySelector(".life-board")');
           assert.equal(await evaluate('document.querySelectorAll(".life-player").length'),count);
+          assert.deepEqual(await evaluate(`JSON.parse(localStorage.getItem('tracker-arcano.life.v1')).players.map(p=>p.rotated)`),count===2 ? (width<=800 ? [true,false] : [false,false]) : count===4 ? [true,true,false,false] : [false,false,false]);
           await assertLayout(`${width}px ${count} jogadores`);
           if(width===390 && count===4) await screenshot("390-life-four.png");
           await viewport(844,width,true); await assertLayout(`paisagem ${width}px ${count} jogadores`);

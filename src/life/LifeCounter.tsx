@@ -9,6 +9,7 @@ import { CommanderControls } from "./CommanderControls";
 import { History } from "./History";
 import { Tools } from "./Tools";
 import { prepareOffline } from "./offline";
+import { iphoneSafari, standaloneMode } from "./presentation";
 import "./life.css";
 
 export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }: { decks?: Deck[]; loadMembers?: () => Promise<string[]>; onRegister?: (deckId: string) => void; isolated?: boolean }) {
@@ -18,6 +19,9 @@ export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }
   const latest = useRef<LifeSession | null>(null);
   const [message, setMessage] = useState(initial.error), [storageError, setStorageError] = useState(initial.error);
   const [focused, setFocused] = useState(false), [fullscreen, setFullscreen] = useState(false);
+  const [standalone, setStandalone] = useState(standaloneMode);
+  const [installDismissed, setInstallDismissed] = useState(false);
+  const fullscreenSupported = typeof document.documentElement.requestFullscreen === "function" && document.fullscreenEnabled === true;
   const [online, setOnline] = useState(navigator.onLine), [offlineStatus, setOfflineStatus] = useState("");
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -27,6 +31,37 @@ export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }
     document.addEventListener("fullscreenchange",full);
     return () => { window.removeEventListener("online",connection); window.removeEventListener("offline",connection); document.removeEventListener("fullscreenchange",full); };
   }, []);
+  useEffect(() => {
+    const display = window.matchMedia("(display-mode: standalone)");
+    const changed = () => setStandalone(standaloneMode());
+    display.addEventListener("change", changed);
+    window.addEventListener("pageshow", changed);
+    return () => { display.removeEventListener("change", changed); window.removeEventListener("pageshow", changed); };
+  }, []);
+  useEffect(() => {
+    if (!focused && !fullscreen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [focused, fullscreen]);
+  useEffect(() => {
+    const element = root.current;
+    const board = element?.querySelector<HTMLElement>(".life-board");
+    if (!element || !board || (!focused && !fullscreen)) return;
+    const measure = () => {
+      const actions = element.querySelector<HTMLElement>(".life-session-actions");
+      const top = board.getBoundingClientRect().top - element.getBoundingClientRect().top + element.scrollTop;
+      const bottom = parseFloat(getComputedStyle(element).paddingBottom);
+      const available = element.clientHeight - top - bottom - (actions?.offsetHeight ?? 44) - 28;
+      element.style.setProperty("--life-board-space", `${Math.max(0, available)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    for (const item of element.querySelectorAll(".life-topbar, .life-install, .notice, .life-session-actions")) observer.observe(item);
+    window.visualViewport?.addEventListener("resize", measure);
+    return () => { observer.disconnect(); window.visualViewport?.removeEventListener("resize", measure); element.style.removeProperty("--life-board-space"); };
+  }, [focused, fullscreen, session?.players.length, session?.ended, message, storageError, installDismissed, online]);
   function persist(value: LifeSession) {
     try { saveSession(value); setStorageError(""); }
     catch { setStorageError("Não foi possível salvar no dispositivo. Os controles continuam em memória; tente salvar novamente antes de fechar."); }
@@ -49,15 +84,16 @@ export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }
   async function toggleFullscreen() {
     try {
       if (document.fullscreenElement === root.current) await document.exitFullscreen();
-      else if (root.current?.requestFullscreen) await root.current.requestFullscreen();
-      else setMessage("Tela cheia não é suportada neste navegador. Use Focar marcador.");
-    } catch { setMessage("O navegador recusou tela cheia. O marcador continua funcionando."); }
+      else if (fullscreenSupported && root.current) await root.current.requestFullscreen();
+      else setFocused(value => !value);
+    } catch { setFocused(true); setMessage("O navegador recusou tela cheia. Modo imersivo ativado; as barras do navegador podem continuar visíveis."); }
   }
   return <section ref={root} className={`life-root${focused ? " life-focused" : ""}${session && !session.ended ? " life-running" : ""}`} aria-label="Marcador de Vida">
     <div className="life-topbar"><h2>Marcador de Vida</h2><div className="life-top-actions">
-      {session && <button className="secondary" onClick={() => setFocused(value => !value)}>{focused ? "Voltar à página" : "Focar marcador"}</button>}
-      <button className="secondary" onClick={toggleFullscreen}>{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</button>
+      {session && <button className="secondary" onClick={async () => { if(fullscreen) await toggleFullscreen(); setFocused(value => !value); }}>{focused ? "Sair do modo imersivo" : "Modo imersivo"}</button>}
+      {fullscreenSupported && !standalone ? <button className="secondary" onClick={toggleFullscreen}>{fullscreen ? "Sair da tela cheia" : "Tela cheia"}</button> : !session && <button className="secondary" onClick={() => setFocused(value => !value)}>{focused ? "Sair do modo imersivo" : "Modo imersivo"}</button>}
     </div></div>
+    {iphoneSafari() && !standalone && !installDismissed && <details className="life-install"><summary>Usar sem as barras do Safari</summary><p>Para usar o marcador sem as barras do Safari, adicione o Tracker Arcano à Tela de Início.</p><p>Abra <a href="/marcador.html">o marcador</a>, toque em Compartilhar no Safari e selecione “Adicionar à Tela de Início”. Depois, abra pelo ícone. Prepare e confira a sessão nesse modo antes de jogar offline.</p><button className="secondary" onClick={() => setInstallDismissed(true)}>Dispensar orientação</button></details>}
     {!online && <p className="muted">Sem conexão · marcador local disponível. Registro de resultados exige internet.</p>}
     {message && <p className="notice" role="alert">{message}</p>}
     {storageError && <div className="notice" role="alert"><p>{storageError}</p>{session && <button onClick={() => persist(latest.current!)}>Salvar novamente</button>}</div>}

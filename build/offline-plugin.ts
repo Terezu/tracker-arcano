@@ -18,7 +18,7 @@ export function offlinePlugin(): Plugin {
     for(const chunk of Object.values(bundle)) if(chunk.type === "chunk" && chunk.isEntry && chunk.facadeModuleId?.replaceAll("\\","/").endsWith("/marcador.html")) checkOffline(chunk.fileName);
     // Component-only test builds do not include the isolated HTML entry.
     if (!assets.size) return;
-    const files = ["/marcador.html", "/manifest.webmanifest", "/favicon.svg", "/life-icon.svg", ...[...assets].map(name => "/" + name)];
+    const files = ["/marcador.html", "/manifest.webmanifest", "/favicon.svg", "/life-icon.svg", "/life-icon-180.png", "/life-icon-192.png", "/life-icon-512.png", ...[...assets].map(name => "/" + name)];
     const version = createHash("sha256").update(JSON.stringify(files)).update(Object.values(bundle).map(item => item.type === "chunk" ? item.code : String(item.source)).join("")).digest("hex").slice(0,16);
     const source = `
 const CACHE = "arcano-life-${version}";

@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import type { Deck } from "../types";
 import { palette, textColor, createSession } from "./domain";
 import type { LifeSession } from "./domain";
+import { initialOrientation } from "./presentation";
 export function Configuration({ decks = [], loadMembers, onStart }: { decks?: Deck[]; loadMembers?: () => Promise<string[]>; onStart: (session: LifeSession) => void }) {
   const [count, setCount] = useState(2), [life, setLife] = useState(20), [poison, setPoison] = useState(10), [deck, setDeck] = useState("");
   const [players, setPlayers] = useState(palette.slice(0,4).map((p,i) => ({ name: `Jogador ${i + 1}`, color: p[1] as string })));
@@ -22,7 +23,7 @@ export function Configuration({ decks = [], loadMembers, onStart }: { decks?: De
   }
   function start(event: FormEvent) {
     event.preventDefault();
-    try { onStart(createSession({ initialLife: life, poisonLimit: poison, players: players.slice(0,count), deckId: deck }, crypto.randomUUID())); }
+    try { onStart(initialOrientation(createSession({ initialLife: life, poisonLimit: poison, players: players.slice(0,count), deckId: deck }, crypto.randomUUID()), window.matchMedia("(max-width: 800px) and (orientation: portrait)").matches)); }
     catch(e) { setError(e instanceof Error ? e.message : "Não foi possível iniciar."); }
   }
   return <form className="life-configuration" onSubmit={start}>
