@@ -29,13 +29,31 @@ interface RawCard {
     normal: string;
   };
   card_faces?: {
+    name: string;
     image_uris?: {
       normal: string;
     };
     oracle_text?: string;
   }[];
 }
-async function collection(names: string[]): Promise<Card[]> {
+interface ResolvedCard { card: Card; faceNames: string[] }
+export function normalizeCardName(name: string) {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  // Treat isolated slash groups as face separators only when every part is named.
+  // Keep apostrophes, commas, hyphens and malformed slash sequences untouched.
+  if (/\/{3,}/.test(trimmed)) return trimmed;
+  const faces = trimmed.split(/\s*\/{1,2}\s*/);
+  return faces.length > 1 && faces.every(Boolean) ? faces.join(" // ") : trimmed;
+}
+const nameKey = (name: string) => normalizeCardName(name).toLowerCase();
+function exactIdentity(cards: ResolvedCard[], name: string) {
+  const matches = cards.filter(({ card, faceNames }) =>
+    nameKey(card.name) === name || faceNames.some(face => nameKey(face) === name),
+  );
+  // Multiple printings of one Oracle identity are not different cards.
+  return new Set(matches.map(({ card }) => card.oracle_id)).size === 1 ? matches[0]?.card : undefined;
+}
+async function collection(names: string[]): Promise<ResolvedCard[]> {
   const run = async () => {
     await pause(550);
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -72,14 +90,15 @@ async function collection(names: string[]): Promise<Card[]> {
             !c.name ||
             !c.oracle_id ||
             !c.type_line ||
-            !c.legalities?.pauper,
+            !c.legalities?.pauper ||
+            (c.card_faces !== undefined && (!Array.isArray(c.card_faces) || c.card_faces.some(f => typeof f.name !== "string" || !f.name.trim()))),
         )
       ) {
         throw new Error(
           "O Scryfall enviou uma resposta incompleta. Tente novamente.",
         );
       }
-      return data.data.map((c) => ({
+      return data.data.map((c) => ({ faceNames: c.card_faces?.map(f => f.name) || [], card: {
         id: c.id,
         name: c.name,
         oracle_id: c.oracle_id,
@@ -89,12 +108,12 @@ async function collection(names: string[]): Promise<Card[]> {
           c.card_faces?.map((f) => f.oracle_text || "").join("\n") ||
           "",
         legalities: c.legalities,
-        images: c.image_uris
+        images: c.image_uris?.normal
           ? [c.image_uris.normal]
           : (c.card_faces || []).flatMap((f) =>
-              f.image_uris ? [f.image_uris.normal] : [],
+              f.image_uris?.normal ? [f.image_uris.normal] : [],
             ),
-      }));
+      } }));
     }
     throw new Error(
       "Limite de consultas Scryfall atingido. Aguarde e tente novamente.",
@@ -111,33 +130,38 @@ export async function validateList(
   const parsed = parseList(text);
   if (parsed.errors.length)
     return { ...parsed, checkedAt: new Date().toISOString() };
-  const names = [...new Set(parsed.entries.map((e) => e.name.toLowerCase()))];
+  // Preserve punctuation for the first exact API lookup, including legitimate
+  // slashes in a single-face name. Normalized keys are for identity and cache.
+  const requested = new Map(parsed.entries.map(e => [nameKey(e.name), e.name.trim().replace(/\s+/g, " ").toLowerCase()]));
+  const names = [...requested.keys()];
   const missing = names.filter(
     (n) => fresh || !cache.has(n) || Date.now() - cache.get(n)!.at > 86400000,
   );
   const errors: string[] = [];
   for (let i = 0; i < missing.length; i += 75) {
     const batch = missing.slice(i, i + 75);
-    const cards = await collection(batch);
+    const cards = await collection(batch.map(name => requested.get(name)!));
+    const unresolved = batch.filter(name => !exactIdentity(cards, name));
+    // Collection identifiers may require a face name even for a full A // B name.
+    // Resolve via the first face, then still verify the entire supplied identity.
+    const frontNames = [...new Set(unresolved.filter(name => name.includes(" // ")).map(name => name.split(" // ")[0]))];
+    const fallback = frontNames.length ? await collection(frontNames) : [];
     batch.forEach((name) => {
-      // Only accept the complete, exact English name. Never select a fuzzy/partial match.
-      const exact = cards.filter((c) => c.name.toLowerCase() === name);
-      if (exact.length === 1)
-        cache.set(name, { card: exact[0], at: Date.now() });
+      const exact = exactIdentity([...cards, ...fallback], name);
+      if (exact)
+        cache.set(name, { card: exact, at: Date.now() });
       else {
         cache.delete(name);
         errors.push(
-          `${name}: nome completo não encontrado ou ambíguo. Use o nome inglês exato, incluindo todas as faces (A // B).`,
+          `${name}: nome não encontrado ou ambíguo. Use o nome inglês exato da carta ou de sua face frontal.`,
         );
       }
     });
   }
-  const entries = parsed.entries.map((e) => ({
-    ...e,
-    ...(cache.has(e.name.toLowerCase())
-      ? { card: cache.get(e.name.toLowerCase())!.card }
-      : {}),
-  }));
+  const entries = parsed.entries.map((e) => {
+    const card = cache.get(nameKey(e.name))?.card;
+    return { ...e, ...(card ? { name: card.name, card } : {}) };
+  });
   return {
     entries,
     errors: [...errors, ...composition(entries)],
