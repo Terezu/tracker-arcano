@@ -17,6 +17,10 @@ import {
   setDoc,
   updateDoc,
   writeBatch,
+  serverTimestamp,
+  getDocFromServer,
+  where,
+  orderBy,
 } from "firebase/firestore";
 let env;
 const stamp = "2026-10-05T12:00:00.000Z";
@@ -72,8 +76,19 @@ test("titular autorizado lê; B, não autorizado e anônimo não acessam A", asy
   await assertSucceeds(
     getDoc(doc(env.authenticatedContext("A").firestore(), path)),
   );
+  await assertSucceeds(
+    getDoc(doc(env.authenticatedContext("B").firestore(), path)),
+  );
+  await assertFails(
+    setDoc(
+      doc(
+        env.authenticatedContext("B").firestore(),
+        "usuarios/A/partidas/intruso",
+      ),
+      match(),
+    ),
+  );
   for (const ctx of [
-    env.authenticatedContext("B"),
     env.authenticatedContext("C"),
     env.authenticatedContext("inativo"),
     env.unauthenticatedContext(),
@@ -178,4 +193,165 @@ test("consultas exigem limites e preferências não concedem autorização", asy
       ativo: true,
     }),
   );
+});
+
+test("consulta do time é limitada a ativos e preserva escrita e dados privados", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, "usuarios/A"), { nome: "Ana" });
+    await setDoc(doc(db, "usuarios/inativo"), { nome: "Inativo" });
+    await setDoc(doc(db, "usuarios/A/preferencias/interface"), {
+      senhaTrocadaNaInterface: true,
+    });
+  });
+  const db = env.authenticatedContext("B").firestore();
+  const members = await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "membros"),
+        where("ativo", "==", true),
+        orderBy("__name__"),
+        limit(100),
+      ),
+    ),
+  );
+  assert.deepEqual(
+    members.docs.map((d) => d.id),
+    ["A", "B"],
+  );
+  await assertFails(
+    getDocs(
+      query(collection(db, "membros"), where("ativo", "==", true), limit(101)),
+    ),
+  );
+  await assertSucceeds(getDoc(doc(db, "usuarios/A")));
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "usuarios/A/decks"),
+        orderBy("__name__"),
+        limit(100),
+      ),
+    ),
+  );
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(db, "usuarios/A/partidas"),
+        orderBy("data", "desc"),
+        orderBy("__name__", "desc"),
+        limit(50),
+      ),
+    ),
+  );
+  await assertFails(getDoc(doc(db, "usuarios/inativo")));
+  await assertFails(
+    getDocs(query(collection(db, "usuarios/inativo/partidas"), limit(50))),
+  );
+  await assertFails(getDoc(doc(db, `${path}/versoes/v1`)));
+  await assertFails(getDoc(doc(db, "usuarios/A/preferencias/interface")));
+  await assertFails(updateDoc(doc(db, "usuarios/A"), { nome: "Intruso" }));
+  await assertFails(updateDoc(doc(db, path), { nome: "Intruso" }));
+  await assertFails(
+    updateDoc(doc(db, "usuarios/A/partidas/m1"), { placar: "0-2" }),
+  );
+  await assertFails(deleteDoc(doc(db, "usuarios/A/partidas/m1")));
+  for (const ctx of [
+    env.authenticatedContext("C"),
+    env.authenticatedContext("inativo"),
+    env.unauthenticatedContext(),
+  ]) {
+    await assertFails(
+      getDocs(
+        query(
+          collection(ctx.firestore(), "membros"),
+          where("ativo", "==", true),
+          limit(100),
+        ),
+      ),
+    );
+  }
+});
+
+test("cadastro do próprio nome preserva histórico, perfil e autorização", async () => {
+  const db = env.authenticatedContext("A").firestore();
+  const ref = doc(db, "usuarios/A");
+  const deckBefore = (await getDoc(doc(db, path))).data();
+  const matchBefore = (await getDoc(doc(db, "usuarios/A/partidas/m1"))).data();
+  const versionBefore = (await getDoc(doc(db, `${path}/versoes/v1`))).data();
+  const membershipBefore = (await getDoc(doc(db, "membros/A"))).data();
+  await assertFails(
+    setDoc(ref, {
+      nome: "",
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    setDoc(ref, {
+      nome: "a".repeat(81),
+      criadoEm: serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    setDoc(
+      ref,
+      {
+        nome: "Ana Silva",
+        criadoEm: serverTimestamp(),
+        atualizadoEm: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  const saved = (await getDocFromServer(ref)).data();
+  assert.equal(saved.nome, "Ana Silva");
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await updateDoc(doc(ctx.firestore(), "usuarios/A"), {
+      legado: "preservado",
+    });
+  });
+  await assertSucceeds(
+    setDoc(
+      ref,
+      { nome: "Ana", atualizadoEm: serverTimestamp() },
+      { merge: true },
+    ),
+  );
+  const updated = (await getDocFromServer(ref)).data();
+  assert.equal(updated.nome, "Ana");
+  assert.equal(updated.legado, "preservado");
+  assert.deepEqual(updated.criadoEm, saved.criadoEm);
+  assert.deepEqual((await getDoc(doc(db, path))).data(), deckBefore);
+  assert.deepEqual(
+    (await getDoc(doc(db, "usuarios/A/partidas/m1"))).data(),
+    matchBefore,
+  );
+  assert.deepEqual(
+    (await getDoc(doc(db, `${path}/versoes/v1`))).data(),
+    versionBefore,
+  );
+  assert.deepEqual(
+    (await getDoc(doc(db, "membros/A"))).data(),
+    membershipBefore,
+  );
+  await assertFails(
+    updateDoc(doc(env.authenticatedContext("B").firestore(), "usuarios/A"), {
+      nome: "Intruso",
+      atualizadoEm: serverTimestamp(),
+    }),
+  );
+  for (const uid of ["C", "inativo"]) {
+    await assertFails(
+      setDoc(
+        doc(env.authenticatedContext(uid).firestore(), `usuarios/${uid}`),
+        {
+          nome: "Teste",
+          criadoEm: serverTimestamp(),
+          atualizadoEm: serverTimestamp(),
+        },
+      ),
+    );
+  }
 });

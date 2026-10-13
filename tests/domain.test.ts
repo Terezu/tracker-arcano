@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { composition, parseList, statistics } from "../src/lib/domain.ts";
-import type { Card, Entry, Score } from "../src/types.ts";
+import {
+  composition,
+  parseList,
+  statistics,
+  teamResults,
+  filterMatches,
+} from "../src/lib/domain.ts";
+import type { Card, Entry, Score, Match } from "../src/types.ts";
 const card = (name: string, extra: Partial<Card> = {}): Card => ({
   id: name,
   oracle_id: name,
@@ -133,4 +139,83 @@ test("legalidade depende de legalities.pauper, falha não vira versão válida",
     ]).join(" "),
     /60.*15/,
   );
+});
+
+const teamMatch = (
+  id: string,
+  placar: Score,
+  data = "2026-10-05",
+  deckId = "d",
+  versaoId = "v1",
+): Match => ({
+  id,
+  placar,
+  data,
+  deckId,
+  versaoId,
+  criadoEm: "2026-10-05T12:00:00.000Z",
+});
+test("time recalcula taxas ponderadas, mantém membros vazios e identidade por UID", () => {
+  const a = teamMatch("same", "2-0");
+  const members = [
+    { uid: "A", matches: [a, a] },
+    {
+      uid: "B",
+      matches: [
+        teamMatch("same", "0-2"),
+        teamMatch("b2", "1-1"),
+        teamMatch("b3", "0-0"),
+      ],
+    },
+    { uid: "C", matches: [] },
+  ];
+  const result = teamResults(members, {});
+  assert.equal(result.individual.length, 3);
+  const s = statistics(result.matches);
+  assert.equal(s.total, 4);
+  assert.equal(s.matchRate, 25);
+  assert.equal(s.gameRate, 50);
+  for (const key of [
+    "total",
+    "wins",
+    "losses",
+    "draws",
+    "gamesWon",
+    "gamesLost",
+  ] as const) {
+    assert.equal(
+      s[key],
+      result.individual.reduce((sum, m) => sum + statistics(m.matches)[key], 0),
+    );
+  }
+  assert.deepEqual(statistics(result.individual[2].matches), statistics([]));
+});
+test("filtros equivalentes preservam versões, datas inclusivas e decks por membro", () => {
+  const members = [
+    {
+      uid: "A",
+      matches: [
+        teamMatch("a", "2-1"),
+        teamMatch("old", "0-2", "2026-10-05", "d", "old"),
+        teamMatch("outside", "2-0", "2026-10-04"),
+        teamMatch("other", "1-1", "2026-10-05", "other"),
+      ],
+    },
+    { uid: "B", matches: [teamMatch("b", "0-0")] },
+  ];
+  const filters = {
+    member: "A",
+    deck: "d",
+    from: "2026-10-05",
+    to: "2026-10-05",
+  };
+  const result = teamResults(members, filters);
+  assert.deepEqual(result.matches, filterMatches(members[0].matches, filters));
+  assert.equal(result.matches.length, 2);
+  assert.deepEqual(
+    result.matches,
+    result.individual.flatMap((m) => m.matches),
+  );
+  assert.equal(teamResults(members, { from: "2026-10-05" }).matches.length, 4);
+  assert.deepEqual(teamResults([], {}).matches, []);
 });

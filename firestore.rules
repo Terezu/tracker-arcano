@@ -6,6 +6,13 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/membros/$(uid))
         && get(/databases/$(database)/documents/membros/$(uid)).data.ativo == true;
     }
+    function activeMember(uid) {
+      return exists(/databases/$(database)/documents/membros/$(uid))
+        && get(/databases/$(database)/documents/membros/$(uid)).data.ativo == true;
+    }
+    function teamReader(uid) {
+      return request.auth != null && activeMember(request.auth.uid) && activeMember(uid);
+    }
     function smallString(value, max) { return value is string && value.size() > 0 && value.size() <= max; }
     function iso(value) { return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.][0-9]{3}Z$'); }
     function date(value) {
@@ -15,10 +22,12 @@ service cloud.firestore {
     }
     match /membros/{uid} {
       allow get: if request.auth != null && request.auth.uid == uid;
-      allow list, write: if false;
+      allow list: if request.auth != null && activeMember(request.auth.uid)
+        && resource.data.ativo == true && request.query.limit <= 100;
+      allow write: if false;
     }
     match /usuarios/{uid} {
-      allow get: if owner(uid);
+      allow get: if teamReader(uid);
       allow create: if owner(uid) && request.resource.data.keys().hasOnly(['nome','criadoEm','atualizadoEm'])
         && smallString(request.resource.data.nome,80)
         && request.resource.data.criadoEm == request.time && request.resource.data.atualizadoEm == request.time;
@@ -39,8 +48,8 @@ service cloud.firestore {
           return !exists(/databases/$(database)/documents/usuarios/$(uid)/decks/$(deckId)/versoes/$(v))
             && getAfter(/databases/$(database)/documents/usuarios/$(uid)/decks/$(deckId)/versoes/$(v)).data.deckId == deckId;
         }
-        allow get: if owner(uid);
-        allow list: if owner(uid) && request.query.limit <= 100;
+        allow get: if teamReader(uid);
+        allow list: if teamReader(uid) && request.query.limit <= 100;
         allow create: if owner(uid) && shape() && newVersion();
         allow update: if owner(uid) && shape() && (request.resource.data.atual == resource.data.atual || newVersion());
         allow delete: if false;
@@ -68,8 +77,8 @@ service cloud.firestore {
             && exists(/databases/$(database)/documents/usuarios/$(uid)/decks/$(d.deckId))
             && get(/databases/$(database)/documents/usuarios/$(uid)/decks/$(d.deckId)/versoes/$(d.versaoId)).data.deckId == d.deckId;
         }
-        allow get: if owner(uid);
-        allow list: if owner(uid) && request.query.limit <= 50;
+        allow get: if teamReader(uid);
+        allow list: if teamReader(uid) && request.query.limit <= 50;
         allow create: if owner(uid) && shape()
           && get(/databases/$(database)/documents/usuarios/$(uid)/decks/$(request.resource.data.deckId)).data.arquivado == false
           && get(/databases/$(database)/documents/usuarios/$(uid)/decks/$(request.resource.data.deckId)).data.atual == request.resource.data.versaoId;

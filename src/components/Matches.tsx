@@ -13,6 +13,8 @@ export function Matches({
   hasMore,
   loadMore,
   refresh,
+  initialDeckId = "",
+  requireConfirmation = false,
 }: {
   uid: string;
   decks: Deck[];
@@ -20,8 +22,10 @@ export function Matches({
   hasMore: boolean;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
+  initialDeckId?: string;
+  requireConfirmation?: boolean;
 }) {
-  const [deckId, setDeckId] = useState(""),
+  const [deckId, setDeckId] = useState(() => decks.some(d => d.id === initialDeckId && !d.arquivado) ? initialDeckId : ""),
     [date, setDate] = useState(localToday()),
     [score, setScore] = useState<Score>("2-0"),
     [editing, setEditing] = useState<Match>(),
@@ -51,6 +55,10 @@ export function Matches({
       if (!editing && !d) throw new Error("Selecione um deck ativo.");
       if (editing && !window.confirm("Confirmar correção desta partida?"))
         return;
+      if (!editing && requireConfirmation) {
+        if (!navigator.onLine) throw new Error("O registro exige conexão. Nenhum resultado foi colocado em fila.");
+        if (!window.confirm(`Confirmar registro manual de ${d!.nome}, data ${date}, placar ${score}?`)) return;
+      }
       await saveMatch(
         uid,
         {
@@ -84,6 +92,7 @@ export function Matches({
       </div>
       <section className="panel">
         <h3>{editing ? "Corrigir partida" : "Registrar partida"}</h3>
+        {requireConfirmation && <p className="muted">Registro opcional após o marcador: escolha data e placar manualmente. Nada será salvo até você confirmar.</p>}
         <form className="match-form" onSubmit={submit}>
           <label>
             Deck
@@ -161,7 +170,12 @@ export function Matches({
         {!matches.length ? (
           <p className="empty">Nenhuma partida registrada.</p>
         ) : (
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Histórico de partidas; role horizontalmente para ver todas as colunas"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

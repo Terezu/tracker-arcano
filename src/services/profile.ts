@@ -1,5 +1,12 @@
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  getDocFromServer,
+  serverTimestamp,
+  setDoc,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { normalizeProfileName, registerProfileName } from "../lib/access";
 const root = (uid: string) => `usuarios/${uid}`;
 export async function membership(uid: string) {
   const s = await getDoc(doc(db, "membros", uid));
@@ -12,18 +19,23 @@ export async function membership(uid: string) {
 }
 export async function profile(uid: string) {
   const s = await getDoc(doc(db, root(uid)));
-  return (s.data()?.nome as string) || "";
+  const name: unknown = s.data()?.nome;
+  return typeof name === "string" ? name : "";
 }
+export async function confirmedProfile(uid: string): Promise<unknown> {
+  const s = await getDocFromServer(doc(db, root(uid)));
+  return s.data()?.nome;
+}
+export const completeProfile = (uid: string, name: string) =>
+  registerProfileName(uid, name, { save: saveProfile, read: confirmedProfile });
 export async function saveProfile(uid: string, nome: string) {
-  if (!nome.trim() || nome.trim().length > 80) {
-    throw new Error("Informe um nome com 1 a 80 caracteres.");
-  }
+  const name = normalizeProfileName(nome);
   const ref = doc(db, root(uid));
   const s = await getDoc(ref);
   await setDoc(
     ref,
     {
-      nome: nome.trim(),
+      nome: name,
       atualizadoEm: serverTimestamp(),
       ...(!s.exists() ? { criadoEm: serverTimestamp() } : {}),
     },

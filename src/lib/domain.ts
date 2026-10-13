@@ -1,4 +1,41 @@
 import type { Entry, Match } from "../types";
+export function filterMatches(
+  matches: Match[],
+  {
+    deck = "",
+    from = "",
+    to = "",
+  }: { deck?: string; from?: string; to?: string },
+) {
+  return matches.filter(
+    (m) =>
+      (!deck || m.deckId === deck) &&
+      (!from || m.data >= from) &&
+      (!to || m.data <= to),
+  );
+}
+// IDs belong to each member's collection, not to a shared event.
+export function teamResults<T extends { uid: string; matches: Match[] }>(
+  members: T[],
+  filters: { member?: string; deck?: string; from?: string; to?: string },
+) {
+  const seen = new Set<string>();
+  const individual = members
+    .filter((m) => !filters.member || m.uid === filters.member)
+    .map((m) => ({
+      ...m,
+      matches: filterMatches(m.matches, {
+        ...filters,
+        deck: filters.member ? filters.deck : "",
+      }).filter((match) => {
+        const key = JSON.stringify([m.uid, match.id]);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+    }));
+  return { individual, matches: individual.flatMap((m) => m.matches) };
+}
 export function parseList(text: string) {
   const entries: Entry[] = [],
     errors: string[] = [];

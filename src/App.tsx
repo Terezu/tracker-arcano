@@ -5,10 +5,16 @@ import type { User } from "firebase/auth";
 import { auth } from "./lib/firebase";
 import { errorMessage, login, logout, resetPassword } from "./services/auth";
 import { membership, passwordAcknowledged } from "./services/data";
+import { confirmedProfile } from "./services/profile";
+import { loadAccess } from "./lib/access";
+import { CompleteProfile } from "./components/CompleteProfile";
 import { Profile } from "./components/Profile";
 import { Workspace } from "./components/Workspace";
 import "./App.css";
 export default function App() {
+  const [needsName, setNeedsName] = useState(true);
+  const [verificationError, setVerificationError] = useState("");
+  const [attempt, setAttempt] = useState(0);
   const [user, setUser] = useState<User | null>(null),
     [loading, setLoading] = useState(true),
     [allowed, setAllowed] = useState(false),
@@ -24,21 +30,25 @@ export default function App() {
       setLoading(true);
       setUser(current);
       setAllowed(false);
+      setNeedsName(true);
+      setVerificationError("");
       setTemporary(false);
       setMessage("");
       try {
         if (current) {
-          const member = await membership(current.uid);
-          const pending =
-            member?.senhaTemporaria === true &&
-            !(await passwordAcknowledged(current.uid));
+          const access = await loadAccess(current.uid, {
+            membership,
+            profile: confirmedProfile,
+            passwordAcknowledged,
+          });
           if (ticket === generation) {
-            setAllowed(member?.ativo === true);
-            setTemporary(pending);
+            setAllowed(access.authorized);
+            setNeedsName(access.needsName);
+            setTemporary(access.temporary);
           }
         }
       } catch (e) {
-        if (ticket === generation) setMessage(errorMessage(e));
+        if (ticket === generation) setVerificationError(errorMessage(e));
       } finally {
         if (ticket === generation) setLoading(false);
       }
@@ -47,7 +57,7 @@ export default function App() {
       generation++;
       cancel();
     };
-  }, []);
+  }, [attempt]);
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -136,6 +146,27 @@ export default function App() {
             </form>
           </section>
         </main>
+      ) : verificationError ? (
+        <main className="panel">
+          <h2>Não foi possível verificar seu acesso</h2>
+          <p className="notice" role="alert">
+            {verificationError}
+          </p>
+          <button
+            onClick={() => {
+              setLoading(true);
+              setAttempt((value) => value + 1);
+            }}
+          >
+            Tentar novamente
+          </button>
+          <button
+            className="secondary"
+            onClick={() => logout().catch((e) => setMessage(errorMessage(e)))}
+          >
+            Sair
+          </button>
+        </main>
       ) : !allowed ? (
         <main className="panel">
           <h2>Acesso aguardando autorização</h2>
@@ -150,6 +181,12 @@ export default function App() {
             Sair
           </button>
         </main>
+      ) : needsName ? (
+        <CompleteProfile
+          key={user.uid}
+          uid={user.uid}
+          onCompleted={() => setNeedsName(false)}
+        />
       ) : temporary ? (
         <main className="panel">
           <h2>Defina sua senha pessoal</h2>

@@ -1,0 +1,68 @@
+.life-root { min-width: 0; color: #eaf0fb; }
+.life-root button, .life-root input, .life-root select, .life-root summary { min-height: 44px; }
+.life-root input, .life-root select { font-size: 16px; min-width: 0; }
+.life-topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.life-topbar h2 { font-size: 1.3rem; margin: 0; }
+.life-top-actions, .life-session-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.life-top-actions button { font-size: .85rem; padding: 10px; }
+.life-player-configs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.life-configuration fieldset { margin: 0; min-width: 0; }
+.life-configuration legend { font-weight: 700; padding: 0 8px; }
+.life-configuration fieldset label { margin-bottom: 12px; }
+.life-color-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.life-color-options button { min-width: 44px; padding: 8px; border: 2px solid transparent; }
+.life-color-options button[aria-pressed=true] { border-color: currentColor; }
+.life-color-options button:disabled { opacity: .35; cursor: not-allowed; }
+.life-board { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.life-board.players-3 .life-player:last-child { grid-column: 1 / -1; }
+.life-player { min-width: 0; border-radius: 14px; padding: 12px; overflow: hidden; }
+.life-player-content { display: flex; flex-direction: column; justify-content: center; gap: 8px; height: 100%; min-width: 0; }
+.life-player-content.rotated { transform: rotate(180deg); }
+.life-player-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.life-player-heading h3 { min-width: 0; overflow-wrap: anywhere; margin: 0; font-size: 1rem; }
+.life-player button { color: inherit; background: #0000001f; border: 1px solid currentColor; min-height: 44px; min-width: 44px; padding: 8px; font-size: 1rem; touch-action: manipulation; }
+.life-player button:focus-visible { outline: 3px solid currentColor; outline-offset: -4px; }
+.life-player button:disabled { opacity: .5; }
+.life-adjustments button, .life-poison button { touch-action: none; }
+.life-player-heading button { flex-shrink: 0; }
+.life-value { display: block; text-align: center; font-family: "Space Grotesk", sans-serif; font-size: clamp(3rem, 8vw, 6rem); font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
+.life-adjustments { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.life-poison { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: .85rem; text-align: center; }
+.life-poison output { font-weight: 700; }
+.life-alert { border: 1px solid currentColor; border-radius: 8px; padding: 6px; font-size: .75rem; margin: 0; }
+.life-disclosure { border: 1px solid #293750; border-radius: 12px; background: #131f32; padding: 12px; margin: 12px 0; }
+.life-disclosure > summary { cursor: pointer; font-weight: 700; display: list-item; padding: 12px 4px; }
+.life-disclosure > summary:focus-visible { outline: 2px solid #a9c9ff; }
+.life-disclosure form, .life-disclosure .filters { margin: 16px 0; }
+.life-checkbox { display: flex; align-items: center; gap: 12px; }
+.life-checkbox input { width: 44px; height: 44px; flex-shrink: 0; margin: 0; }
+.life-commander { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #293750; }
+.life-history { max-height: 50svh; overflow: auto; padding-left: 24px; }
+.life-history li { margin: 16px 0; }
+.life-history :is(time, span) { display: block; margin-top: 4px; font-size: .85rem; }
+.life-random-result { display: block; margin: 16px 0; font-size: 1.5rem; }
+.life-focused, .life-root:fullscreen { position: fixed; inset: 0; z-index: 100; background: #0b1220; padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); overflow: auto; overscroll-behavior: contain; }
+.life-focused .life-board, .life-root:fullscreen .life-board { min-height: min(640px, calc(100svh - 140px)); }
+.life-session-actions { margin: 12px 0; }
+.life-isolated-note { margin-top: 24px; }
+@media (max-width: 800px) {
+  .life-player-configs { grid-template-columns: minmax(0, 1fr); }
+  .life-root .life-player button { min-width: 44px; max-width: none; }
+  .life-root .life-adjustments button { width: auto; }
+  .life-board.players-2 { grid-template-columns: minmax(0, 1fr); }
+  .life-root .life-color-options button { min-width: 44px; }
+  .life-commander { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 430px) {
+  .life-board:not(.players-2) .life-adjustments { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .life-board:not(.players-2) .life-player { padding: 8px; }
+  .life-board:not(.players-2) .life-player-heading { flex-wrap: wrap; gap: 4px; }
+  .life-board:not(.players-2) .life-value { font-size: 2.8rem; }
+  .life-board:not(.players-2) .life-poison { flex-wrap: wrap; justify-content: center; }
+  .life-board:not(.players-2) .life-poison span { width: 100%; order: -1; }
+  .life-session-actions > button { flex: 1 1 140px; }
+}
+@media (orientation: landscape) {
+  .life-board.players-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .life-focused .life-board, .life-root:fullscreen .life-board { min-height: calc(100svh - 140px); }
+}

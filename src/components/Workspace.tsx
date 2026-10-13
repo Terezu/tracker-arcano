@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import type { Deck, Match } from "../types";
@@ -12,8 +12,15 @@ import { errorMessage, logout } from "../services/auth";
 import { Decks } from "./Decks";
 import { Matches } from "./Matches";
 import { Overview } from "./Overview";
+import { TeamStatistics } from "./TeamStatistics";
 import { Profile } from "./Profile";
+import { LifeCounter } from "../life/LifeCounter";
+import { listMemberNames } from "../services/memberNames";
 export function Workspace({ user }: { user: User }) {
+  const [registration, setRegistration] = useState<{ deckId: string }>();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const [revision, setRevision] = useState(0);
   const [tab, setTab] = useState("Visão geral"),
     [decks, setDecks] = useState<Deck[]>([]),
     [matches, setMatches] = useState<Match[]>([]),
@@ -31,6 +38,7 @@ export function Workspace({ user }: { user: User }) {
     setMatches(m);
     setHistory(p.matches);
     setCursor(p.cursor);
+    setRevision((value) => value + 1);
   }, [user.uid]);
   useEffect(() => {
     let active = true;
@@ -72,26 +80,62 @@ export function Workspace({ user }: { user: User }) {
   }
   return (
     <>
-      <nav aria-label="Navegação principal">
-        {["Visão geral", "Meus decks", "Partidas", "Perfil"].map((item) => (
-          <button
-            key={item}
-            aria-current={tab === item ? "page" : undefined}
-            className={tab === item ? "active" : ""}
-            onClick={() => setTab(item)}
-          >
-            {item}
-          </button>
-        ))}
+      <nav
+        aria-label="Navegação principal"
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && menuOpen) {
+            setMenuOpen(false);
+            menuButton.current?.focus();
+          }
+        }}
+      >
         <button
-          className="logout"
-          onClick={() => logout().catch((e) => setError(errorMessage(e)))}
+          ref={menuButton}
+          className="mobile-menu-toggle"
+          aria-expanded={menuOpen}
+          aria-controls="workspace-navigation"
+          onClick={() => setMenuOpen((open) => !open)}
         >
-          Sair
+          <span>Menu · {tab}</span>
+          <span aria-hidden="true">{menuOpen ? "▴" : "▾"}</span>
         </button>
+        <div
+          id="workspace-navigation"
+          className={`navigation-items${menuOpen ? " menu-open" : ""}`}
+        >
+          {[
+            "Visão geral",
+            "Estatísticas do Time",
+            "Meus decks",
+            "Partidas",
+            "Marcador de Vida",
+            "Perfil",
+          ].map((item) => (
+            <button
+              key={item}
+              aria-current={tab === item ? "page" : undefined}
+              className={tab === item ? "active" : ""}
+              onClick={() => {
+                setTab(item);
+                if (menuOpen) {
+                  setMenuOpen(false);
+                  menuButton.current?.focus();
+                }
+              }}
+            >
+              {item}
+            </button>
+          ))}
+          <button
+            className="logout"
+            onClick={() => logout().catch((e) => setError(errorMessage(e)))}
+          >
+            Sair
+          </button>
+        </div>
       </nav>
       <main>
-        <div className="sync">
+        {tab !== "Marcador de Vida" && <div className="sync">
           <button
             className="text-button"
             disabled={loading}
@@ -99,21 +143,28 @@ export function Workspace({ user }: { user: User }) {
           >
             Atualizar dados
           </button>
-        </div>
-        {error && (
+        </div>}
+        {error && tab !== "Marcador de Vida" && (
           <div className="notice" role="alert">
             <p>{error}</p>
             <button onClick={synchronize}>Tentar novamente</button>
           </div>
         )}
-        {loading ? (
+        {tab === "Marcador de Vida" ? (
+          <LifeCounter decks={decks} loadMembers={listMemberNames} onRegister={deckId => { setRegistration({deckId}); setTab("Partidas"); }} />
+        ) : loading ? (
           <p role="status">Carregando seus decks e resultados…</p>
         ) : error ? null : tab === "Visão geral" ? (
           <Overview decks={decks} matches={matches} />
+        ) : tab === "Estatísticas do Time" ? (
+          <TeamStatistics key={revision} />
         ) : tab === "Meus decks" ? (
           <Decks uid={user.uid} decks={decks} refresh={refresh} />
         ) : tab === "Partidas" ? (
           <Matches
+            key={registration ? `life-${registration.deckId}` : "normal"}
+            initialDeckId={registration?.deckId}
+            requireConfirmation={!!registration}
             uid={user.uid}
             decks={decks}
             matches={history}
