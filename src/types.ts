@@ -45,6 +45,7 @@ export interface Version {
   criadoEm: string;
 }
 export interface Match {
+  deckAdversario?: string;
   id: string;
   deckId: string;
   versaoId: string;

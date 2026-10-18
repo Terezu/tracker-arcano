@@ -219,3 +219,55 @@ test("filtros equivalentes preservam versões, datas inclusivas e decks por memb
   assert.equal(teamResults(members, { from: "2026-10-05" }).matches.length, 4);
   assert.deepEqual(teamResults([], {}).matches, []);
 });
+
+import { normalizeOpponent, opponentOptions, missingOpponent, matchPayload, resultSlices } from "../src/lib/domain.ts";
+test("opponent normalization preserves distinct names and Unicode equivalence", () => {
+  for (const [a,b] of [["Krenko","krenko"],["Krenko"," Krenko "],["Edgar Markov","Edgar  Markov"],["EDGAR MARKOV","edgar markov"],["Caf\u00e9","Cafe\u0301"],["Krenko","\uff2brenko"]]) assert.equal(normalizeOpponent(a).key,normalizeOpponent(b).key);
+  assert.notEqual(normalizeOpponent("Krenko!").key, normalizeOpponent("Krenko").key);
+  assert.notEqual(normalizeOpponent("Edgar").key, normalizeOpponent("Edgar Markov").key);
+  assert.equal(normalizeOpponent(" KreNKo ").name,"KreNKo");
+});
+test("match payload supports create, edit, clearing and legacy absence", () => {
+  const legacy = teamMatch("1","2-0");
+  assert.deepEqual(matchPayload(legacy),legacy);
+  assert.equal(matchPayload({...legacy,deckAdversario:"  Edgar  Markov "}).deckAdversario,"Edgar Markov");
+  assert.equal(matchPayload({...legacy,deckAdversario:"Yuriko"}).deckAdversario,"Yuriko");
+  assert.equal("deckAdversario" in matchPayload({...legacy,deckAdversario:" "}),false);
+  assert.throws(() => matchPayload({...legacy,deckAdversario:"x".repeat(201)}));
+});
+const confrontationMatches: Match[] = [
+  {...teamMatch("1","2-0",undefined,"atraxa"),deckAdversario:"Krenko"},
+  {...teamMatch("2","0-2",undefined,"atraxa"),deckAdversario:" krenko "},
+  {...teamMatch("3","2-1",undefined,"atraxa"),deckAdversario:"Yuriko"},
+  teamMatch("4","1-1",undefined,"atraxa"),
+  {...teamMatch("5","2-0",undefined,"muldrotha"),deckAdversario:"KRENKO"},
+];
+test("individual confrontations isolate decks, include missing and sum to deck totals", () => {
+  const deck = filterMatches(confrontationMatches,{deck:"atraxa"});
+  assert.equal(deck.length,4);
+  assert.equal(opponentOptions(deck).length,3);
+  assert.equal(filterMatches(confrontationMatches,{deck:"atraxa",opponent:"name:krenko"}).length,2);
+  assert.equal(statistics(filterMatches(confrontationMatches,{deck:"muldrotha",opponent:"name:krenko"})).matchRate,100);
+  assert.equal(filterMatches(deck,{opponent:missingOpponent}).length,1);
+  assert.equal(opponentOptions(deck).reduce((n,o)=>n+filterMatches(deck,{opponent:o.value}).length,0),deck.length);
+  assert.equal(filterMatches(confrontationMatches,{}).length,5);
+});
+test("team member and opponent filters are independent AND intersections, dedup by uid/id", () => {
+  const members = [{uid:"A",matches:[...confrontationMatches,confrontationMatches[0]]},{uid:"B",matches:[{...confrontationMatches[0],placar:"0-2" as const}]}];
+  assert.equal(teamResults(members,{}).matches.length,6);
+  assert.equal(teamResults(members,{member:"A"}).matches.length,5);
+  assert.equal(teamResults(members,{opponent:"name:krenko"}).matches.length,4);
+  const combined=teamResults(members,{member:"A",opponent:"name:krenko"});
+  assert.equal(combined.matches.length,3);
+  assert.equal(combined.individual.length,1);
+  assert.equal(teamResults(members,{member:"B",opponent:"name:krenko"}).matches.length,1);
+  assert.equal(teamResults(members,{member:"B",opponent:missingOpponent}).matches.length,0);
+  assert.equal(teamResults(members,{}).matches.length,6);
+});
+test("pie counts and percentages reflect filters, draws and empty results", () => {
+  const matches = Array.from({length:20},(_,i)=>({placar:i<12 ? "2-0" as const : "0-2" as const}));
+  assert.deepEqual(resultSlices(matches).map(s=>[s.count,s.percent]),[[12,60],[8,40],[0,0]]);
+  assert.deepEqual(resultSlices([]).map(s=>s.percent),[0,0,0]);
+  assert.equal(resultSlices([{placar:"0-0"}])[2].percent,100);
+  assert.equal(resultSlices(filterMatches(confrontationMatches,{deck:"muldrotha"}))[0].percent,100);
+});

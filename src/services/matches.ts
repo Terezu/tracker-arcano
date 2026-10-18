@@ -12,6 +12,7 @@ import {
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import type { Match } from "../types";
+import { matchPayload } from "../lib/domain";
 const root = (uid: string) => `usuarios/${uid}`;
 const matchCache = new Map<string, Match[]>();
 const pendingScans = new Map<string, Promise<Match[]>>();
@@ -69,6 +70,7 @@ export async function saveMatch(
   value: Omit<Match, "id">,
   id?: string,
 ) {
+  value = matchPayload(value);
   const ref = id
     ? doc(db, `${root(uid)}/partidas/${id}`)
     : doc(collection(db, `${root(uid)}/partidas`));

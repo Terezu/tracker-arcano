@@ -21,6 +21,8 @@ O aplicativo normal se conecta ao projeto real `tracker-arcano`. Os testes de re
 
 ## Funcionalidades
 
+As melhorias de confrontos, filtros combinados e gráficos de pizza estão documentadas em [Estatísticas e confrontos — validação local](STATISTICS_UPDATE.md), incluindo modelo compatível, arquivos alterados, testes e procedimentos manuais.
+
 - Login, logout, recuperação por e-mail, nome de exibição e troca de senha com reautenticação pela senha atual.
 - Membros autorizados pelo administrador, sem cadastro público. Tela com UID para facilitar a autorização da conta existente.
 - Exigência de troca de senha temporária na interface, com navegação bloqueada até concluir.

@@ -355,3 +355,16 @@ test("cadastro do próprio nome preserva histórico, perfil e autorização", as
     );
   }
 });
+
+test("optional opponent supports legacy, creation, edit, removal and rejects invalid values", async () => {
+  const db = env.authenticatedContext("A").firestore();
+  const ref = doc(db,"usuarios/A/partidas/opponent");
+  await assertSucceeds(setDoc(ref,match({deckAdversario:"Krenko"})));
+  await assertSucceeds(updateDoc(ref,{deckAdversario:"Edgar Markov"}));
+  assert.equal((await getDoc(ref)).data().deckAdversario,"Edgar Markov");
+  await assertSucceeds(setDoc(ref,match()));
+  assert.equal("deckAdversario" in (await getDoc(ref)).data(),false);
+  for (const value of [null,42,"", "x".repeat(201)]) await assertFails(setDoc(ref,match({deckAdversario:value})));
+  await assertSucceeds(updateDoc(doc(db,"usuarios/A/partidas/m1"),{deckAdversario:"Yuriko"}));
+  await assertFails(updateDoc(doc(env.authenticatedContext("B").firestore(),"usuarios/A/partidas/m1"),{deckAdversario:"Krenko"}));
+});

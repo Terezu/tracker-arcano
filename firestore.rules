@@ -71,7 +71,8 @@ service cloud.firestore {
       match /partidas/{matchId} {
         function shape() {
           let d = request.resource.data;
-          return d.keys().hasOnly(['deckId','versaoId','data','placar','criadoEm'])
+          return d.keys().hasOnly(['deckId','versaoId','data','placar','criadoEm','deckAdversario'])
+            && (!('deckAdversario' in d) || smallString(d.deckAdversario,200))
             && smallString(d.deckId,128) && smallString(d.versaoId,128) && date(d.data) && iso(d.criadoEm)
             && d.placar in ['2-0','2-1','1-1','1-2','0-2','1-0','0-1','0-0']
             && exists(/databases/$(database)/documents/usuarios/$(uid)/decks/$(d.deckId))
@@ -82,7 +83,7 @@ service cloud.firestore {
         allow create: if owner(uid) && shape()
           && get(/databases/$(database)/documents/usuarios/$(uid)/decks/$(request.resource.data.deckId)).data.arquivado == false
           && get(/databases/$(database)/documents/usuarios/$(uid)/decks/$(request.resource.data.deckId)).data.atual == request.resource.data.versaoId;
-        allow update: if owner(uid) && shape() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['data','placar']);
+        allow update: if owner(uid) && shape() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['data','placar','deckAdversario']);
         allow delete: if owner(uid);
       }
     }

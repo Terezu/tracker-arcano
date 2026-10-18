@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { scores } from "../types";
 import type { Deck, Match, Score, Version } from "../types";
-import { localToday } from "../lib/domain";
+import { localToday, opponentOptions } from "../lib/domain";
 import { deleteMatch, getVersion, saveMatch } from "../services/data";
 import { errorMessage } from "../services/auth";
 import { CardList } from "./Decks";
@@ -10,6 +10,7 @@ export function Matches({
   uid,
   decks,
   matches,
+  suggestionMatches = matches,
   hasMore,
   loadMore,
   refresh,
@@ -19,6 +20,7 @@ export function Matches({
   uid: string;
   decks: Deck[];
   matches: Match[];
+  suggestionMatches?: Match[];
   hasMore: boolean;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -32,6 +34,8 @@ export function Matches({
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [version, setVersion] = useState<Version>();
+  const [opponent, setOpponent] = useState("");
+  const suggestions = useMemo(() => opponentOptions(suggestionMatches), [suggestionMatches]);
   const active = decks.filter((d) => !d.arquivado);
   const saving = useRef(false);
   async function action(work: () => Promise<void>) {
@@ -66,11 +70,13 @@ export function Matches({
           versaoId: editing?.versaoId || d!.atual,
           data: date,
           placar: score,
+          deckAdversario: opponent,
           criadoEm: editing?.criadoEm || new Date().toISOString(),
         },
         editing?.id,
       );
       setEditing(undefined);
+      setOpponent("");
       setDeckId("");
       try {
         await refresh();
@@ -119,6 +125,14 @@ export function Matches({
               </select>
             )}
           </label>
+          <label>Deck do oponente
+            <input value={opponent} maxLength={200} list="opponent-suggestions" onChange={e => setOpponent(e.target.value)} />
+            <datalist id="opponent-suggestions">
+              {suggestions.filter(o => o.value.startsWith("name:")).map(o => (
+                <option key={o.value} value={o.label} />
+              ))}
+            </datalist>
+          </label>
           <label>
             Data
             <input
@@ -149,7 +163,7 @@ export function Matches({
               type="button"
               className="secondary"
               disabled={busy}
-              onClick={() => setEditing(undefined)}
+              onClick={() => { setEditing(undefined); setOpponent(""); }}
             >
               Cancelar
             </button>
@@ -181,6 +195,7 @@ export function Matches({
                 <tr>
                   <th>Data</th>
                   <th>Deck</th>
+                  <th>Deck adversário</th>
                   <th>Placar</th>
                   <th>Ações</th>
                 </tr>
@@ -207,6 +222,9 @@ export function Matches({
                       </button>
                     </td>
                     <td>
+                      {m.deckAdversario || "Sem deck adversário informado"}
+                    </td>
+                    <td>
                       <span className="score">{m.placar}</span>
                     </td>
                     <td>
@@ -218,6 +236,7 @@ export function Matches({
                             setEditing(m);
                             setDate(m.data);
                             setScore(m.placar);
+                            setOpponent(m.deckAdversario || "");
                             window.scrollTo({ top: 0, behavior: "smooth" });
                           }}
                         >

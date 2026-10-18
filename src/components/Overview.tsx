@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Deck, Match } from "../types";
-import { filterMatches } from "../lib/domain";
+import { filterMatches, opponentOptions } from "../lib/domain";
 import { StatisticsView } from "./StatisticsView";
 export function Overview({
   decks,
@@ -9,12 +9,17 @@ export function Overview({
   decks: Deck[];
   matches: Match[];
 }) {
+  const [opponent, setOpponent] = useState("");
   const [deck, setDeck] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
   const filtered = useMemo(
-    () => filterMatches(matches, { deck, from, to }),
-    [matches, deck, from, to],
+    () => filterMatches(matches, { deck, opponent, from, to }),
+    [matches, deck, opponent, from, to],
+  );
+  const opponents = useMemo(
+    () => opponentOptions(matches.filter(m => m.deckId === deck)),
+    [matches, deck],
   );
   return (
     <>
@@ -28,7 +33,7 @@ export function Overview({
       <section className="panel filters">
         <label>
           Deck
-          <select value={deck} onChange={(e) => setDeck(e.target.value)}>
+          <select value={deck} onChange={(e) => { setDeck(e.target.value); setOpponent(""); }}>
             <option value="">Todos os decks</option>
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
@@ -38,6 +43,12 @@ export function Overview({
             ))}
           </select>
         </label>
+        {deck && <label>Deck adversário
+          <select value={opponent} onChange={e => setOpponent(e.target.value)}>
+            <option value="">Geral</option>
+            {opponents.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>}
         <label>
           De
           <input
@@ -59,6 +70,7 @@ export function Overview({
           className="secondary"
           onClick={() => {
             setDeck("");
+            setOpponent("");
             setFrom("");
             setTo("");
           }}

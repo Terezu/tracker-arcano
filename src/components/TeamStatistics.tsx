@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import { loadTeam } from "../services/team";
 import type { TeamMember } from "../services/team";
 import { errorMessage } from "../services/auth";
-import { teamResults } from "../lib/domain";
+import { teamResults, opponentOptions } from "../lib/domain";
 import { StatisticsView } from "./StatisticsView";
 export function TeamStatistics() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [opponent, setOpponent] = useState("");
   const [member, setMember] = useState(""),
     [deck, setDeck] = useState("");
   const [from, setFrom] = useState(""),
@@ -33,8 +34,12 @@ export function TeamStatistics() {
     };
   }, [attempt]);
   const results = useMemo(
-    () => teamResults(members, { member, deck, from, to }),
-    [members, member, deck, from, to],
+    () => teamResults(members, { member, deck, opponent, from, to }),
+    [members, member, deck, opponent, from, to],
+  );
+  const opponents = useMemo(
+    () => opponentOptions(members.flatMap(m => m.matches)),
+    [members],
   );
   if (loading) return <p role="status">Carregando estatísticas do time…</p>;
   if (error)
@@ -99,6 +104,12 @@ export function TeamStatistics() {
               ))}
           </select>
         </label>
+        <label>Deck adversário
+          <select value={opponent} onChange={e => setOpponent(e.target.value)}>
+            <option value="">Todos os decks adversários</option>
+            {opponents.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </label>
         <label>
           De
           <input
@@ -120,6 +131,7 @@ export function TeamStatistics() {
           className="secondary"
           onClick={() => {
             setMember("");
+            setOpponent("");
             setDeck("");
             setFrom("");
             setTo("");

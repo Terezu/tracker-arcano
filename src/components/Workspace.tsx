@@ -168,6 +168,7 @@ export function Workspace({ user }: { user: User }) {
             uid={user.uid}
             decks={decks}
             matches={history}
+            suggestionMatches={matches}
             hasMore={!!cursor}
             loadMore={loadMore}
             refresh={refresh}

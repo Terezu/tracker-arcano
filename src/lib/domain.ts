@@ -1,15 +1,41 @@
 import type { Entry, Match } from "../types";
+// Comparison always derives from the display name, including legacy documents.
+export function normalizeOpponent(value = "") {
+  const name = value.trim().replace(/\s+/gu, " ");
+  return { name, key: name.normalize("NFKC").toLowerCase() };
+}
+export const missingOpponent = "missing:";
+export function opponentValue(match: Pick<Match, "deckAdversario">) {
+  const key = normalizeOpponent(match.deckAdversario).key;
+  return key ? `name:${key}` : missingOpponent;
+}
+export function opponentOptions(matches: Match[]) {
+  const options = new Map<string, string>();
+  for (const match of matches) {
+    const value = opponentValue(match);
+    if (!options.has(value)) options.set(value, normalizeOpponent(match.deckAdversario).name || "Sem deck adversário informado");
+  }
+  return [...options].map(([value, label]) => ({ value, label })).sort((a,b) => a.label.localeCompare(b.label, "pt-BR"));
+}
+export function matchPayload(value: Omit<Match, "id">) {
+  const { deckAdversario, ...rest } = value;
+  const name = normalizeOpponent(deckAdversario).name;
+  if (name.length > 200) throw new Error("Deck do oponente: máximo de 200 caracteres.");
+  return name ? { ...rest, deckAdversario: name } : rest;
+}
 export function filterMatches(
   matches: Match[],
   {
     deck = "",
+    opponent = "",
     from = "",
     to = "",
-  }: { deck?: string; from?: string; to?: string },
+  }: { deck?: string; opponent?: string; from?: string; to?: string },
 ) {
   return matches.filter(
     (m) =>
       (!deck || m.deckId === deck) &&
+      (!opponent || opponentValue(m) === opponent) &&
       (!from || m.data >= from) &&
       (!to || m.data <= to),
   );
@@ -17,7 +43,7 @@ export function filterMatches(
 // IDs belong to each member's collection, not to a shared event.
 export function teamResults<T extends { uid: string; matches: Match[] }>(
   members: T[],
-  filters: { member?: string; deck?: string; from?: string; to?: string },
+  filters: { member?: string; deck?: string; opponent?: string; from?: string; to?: string },
 ) {
   const seen = new Set<string>();
   const individual = members
@@ -149,4 +175,13 @@ export function statistics(matches: Pick<Match, "placar">[]) {
 export function localToday() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function resultSlices(matches: Pick<Match, "placar">[]) {
+  const s = statistics(matches);
+  return [
+    { key: "wins", label: "Vitórias", count: s.wins },
+    { key: "losses", label: "Derrotas", count: s.losses },
+    { key: "draws", label: "Empates", count: s.draws },
+  ].map(slice => ({ ...slice, percent: s.total ? slice.count / s.total * 100 : 0 }));
 }

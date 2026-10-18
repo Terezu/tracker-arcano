@@ -1,3 +1,4 @@
+import { ResultPie } from "./ResultPie";
 import type { Match } from "../types";
 import { statistics } from "../lib/domain";
 export function StatisticsView({
@@ -13,7 +14,9 @@ export function StatisticsView({
     .sort((a, b) => a.data.localeCompare(b.data))
     .forEach((m) => {
       const month = m.data.slice(0, 7);
-      monthly.set(month, [...(monthly.get(month) || []), m]);
+      const bucket = monthly.get(month) || [];
+      bucket.push(m);
+      monthly.set(month, bucket);
     });
   return (
     <>
@@ -23,8 +26,8 @@ export function StatisticsView({
           ["Vitórias", stats.wins],
           ["Derrotas", stats.losses],
           ["Empates", stats.draws],
-          ["Vitórias em partidas", `${stats.matchRate.toFixed(1)}%`],
-          ["Vitórias em jogos", `${stats.gameRate.toFixed(1)}%`],
+          ["Vitórias em partidas", `${stats.matchRate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`],
+          ["Vitórias em jogos", `${stats.gameRate.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`],
         ].map(([label, value]) => (
           <section className="panel stat" key={label}>
             <p>{label}</p>
@@ -45,44 +48,16 @@ export function StatisticsView({
         <div className="chart-grid">
           <section className="panel">
             <h3>Distribuição de resultados</h3>
-            <div
-              className="distribution"
-              role="img"
-              aria-label={`${stats.wins} vitórias, ${stats.losses} derrotas e ${stats.draws} empates`}
-            >
-              {[
-                ["wins", stats.wins],
-                ["losses", stats.losses],
-                ["draws", stats.draws],
-              ].map(([key, value]) => (
-                <span
-                  key={key}
-                  className={String(key)}
-                  style={{ width: `${(Number(value) / stats.total) * 100}%` }}
-                />
-              ))}
-            </div>
-            <ul className="legend">
-              <li>🟦 Vitórias: {stats.wins}</li>
-              <li>🟥 Derrotas: {stats.losses}</li>
-              <li>⬜ Empates: {stats.draws}</li>
-            </ul>
+            <ResultPie key={`${stats.wins}/${stats.losses}/${stats.draws}`} matches={filtered} />
           </section>
           <section className="panel">
-            <h3>Evolução mensal · vitórias em partidas</h3>
+            <h3>Resultados por mês</h3>
             <div className="evolution">
               {[...monthly.entries()].map(([month, values]) => {
-                const s = statistics(values);
                 return (
                   <div className="month" key={month}>
                     <span>{month.split("-").reverse().join("/")}</span>
-                    <div className="track">
-                      <span style={{ width: `${s.matchRate}%` }} />
-                    </div>
-                    <strong>{s.matchRate.toFixed(1)}%</strong>
-                    <small>
-                      {s.wins}V / {s.losses}D / {s.draws}E
-                    </small>
+                    <ResultPie key={values.map(m => m.placar).join(",")} matches={values} />
                   </div>
                 );
               })}

@@ -481,3 +481,16 @@ main {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.result-pie { min-width: 0; }
+.result-pie svg { display: block; width: min(100%, 230px); margin: auto; }
+.result-pie path { cursor: pointer; stroke: var(--bg, #101722); stroke-width: 2; }
+.result-pie path:focus, .result-pie path[aria-pressed="true"] { stroke: #f8d477; stroke-width: 4; outline: none; }
+.result-pie .wins { fill: #58b9df; background: #58b9df; }
+.result-pie .losses { fill: #ed7386; background: #ed7386; }
+.result-pie .draws { fill: #b4bfd3; background: #b4bfd3; }
+.pie-swatch { display: inline-block; width: .8em; height: .8em; border-radius: 50%; margin-right: .5em; }
+.pie-tooltip-slot { min-height: 5rem; overflow-wrap: anywhere; }
+.pie-tooltip-slot p { margin: .5rem 0; }
+.month { display: block; }
+.month > span { display: block; margin-bottom: .5rem; }
