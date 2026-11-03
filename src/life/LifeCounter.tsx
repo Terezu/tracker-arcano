@@ -10,6 +10,7 @@ import { History } from "./History";
 import { Tools } from "./Tools";
 import { prepareOffline } from "./offline";
 import { iphoneSafari, standaloneMode } from "./presentation";
+import { useWakeLock } from "./useWakeLock";
 import "./life.css";
 
 export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }: { decks?: Deck[]; loadMembers?: () => Promise<string[]>; onRegister?: (deckId: string) => void; isolated?: boolean }) {
@@ -24,6 +25,7 @@ export function LifeCounter({ decks, loadMembers, onRegister, isolated = false }
   const fullscreenSupported = typeof document.documentElement.requestFullscreen === "function" && document.fullscreenEnabled === true;
   const [online, setOnline] = useState(navigator.onLine), [offlineStatus, setOfflineStatus] = useState("");
   const root = useRef<HTMLElement>(null);
+  useWakeLock();
   useEffect(() => {
     const connection = () => setOnline(navigator.onLine);
     const full = () => setFullscreen(document.fullscreenElement === root.current);

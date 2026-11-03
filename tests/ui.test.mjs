@@ -505,6 +505,22 @@ test(
         await evaluate(`document.querySelector('.match-form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))`);
         await waitFor('globalThis.__lastMatch?.value.deckAdversario === ""');
       });
+      await t.test("marcador: mantém a tela ligada somente enquanto estiver aberto", async () => {
+        await viewport(390,844);
+        await navigate("responsive"); await waitFor('document.querySelector("nav")');
+        await evaluate(`(() => {
+          globalThis.__wakeRequests = 0; globalThis.__wakeReleases = 0;
+          Object.defineProperty(navigator,'wakeLock',{configurable:true,value:{request:async type => { if(type === 'screen') globalThis.__wakeRequests++; const lock = {released:false,release:async () => { lock.released = true; globalThis.__wakeReleases++; }}; return lock; }}});
+        })()`);
+        assert.equal(await evaluate('globalThis.__wakeRequests'),0);
+        await selectTab("Marcador de Vida");
+        await waitFor('globalThis.__wakeRequests === 1');
+        await evaluate(`document.body.click()`);
+        await new Promise(resolve => setTimeout(resolve,50));
+        assert.equal(await evaluate('globalThis.__wakeRequests'),1);
+        await selectTab("Visão geral");
+        await waitFor('globalThis.__wakeReleases === 1');
+      });
       await t.test("marcador: contadores, comandante, desfazer, sessão local e registro somente confirmado", async () => {
         await viewport(390,844);
         await navigate("responsive"); await waitFor('document.querySelector("nav")');

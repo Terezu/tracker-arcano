@@ -186,6 +186,8 @@ A aba **Marcador de Vida** integra a navegação existente, inclusive o menu mob
 
 Durante a sessão: vida independente com +1/−1/+5/−5, inclusive negativa; veneno não negativo; rotação individual em 180°; alertas de possível eliminação; comandantes múltiplos, troca de controlador, dano e correções; histórico expansível com valores anteriores/novos, jogador, fonte e horário; desfazer global; D6 e moeda com `crypto.getRandomValues` e rejeição de amostras para evitar viés; tela cheia com tratamento de falhas e modo Focar marcador como alternativa. Alertas nunca encerram a partida. Não há refazer nesta versão.
 
+Enquanto o marcador estiver aberto (aba ou página isolada), a tela do dispositivo não apaga por inatividade, usando a Screen Wake Lock API (`src/life/useWakeLock.ts`). A trava é renovada ao voltar para a página e liberada ao sair do marcador. Exige HTTPS e navegador compatível; sem suporte, ou com recusa do sistema (por exemplo, bateria fraca), o marcador funciona normalmente e a tela segue a configuração do aparelho.
+
 Reinício rápido exige confirmação, mantém jogadores, nomes, cores, rotação, deck e comandantes, restaura a vida inicial e zera veneno, dano e histórico. Nova configuração também exige confirmação antes de remover a sessão. Encerrar exige confirmação e preserva o resumo local para consulta posterior.
 
 ### Análise e arquitetura
