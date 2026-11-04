@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Deck, Match } from "../types";
-import { filterMatches, opponentOptions } from "../lib/domain";
+import { filterMatches, monthOptions, monthRange, opponentOptions, rangeMonth } from "../lib/domain";
 import { StatisticsView } from "./StatisticsView";
 export function Overview({
   decks,
@@ -21,6 +21,17 @@ export function Overview({
     () => opponentOptions(matches.filter(m => m.deckId === deck)),
     [matches, deck],
   );
+  // The month is derived from De/Até, so the three fields can never disagree.
+  const month = rangeMonth(from, to);
+  const months = useMemo(
+    () => monthOptions(deck ? matches.filter(m => m.deckId === deck) : matches, month),
+    [matches, deck, month],
+  );
+  function selectMonth(value: string) {
+    const range = value ? monthRange(value) : { from: "", to: "" };
+    setFrom(range.from);
+    setTo(range.to);
+  }
   return (
     <>
       <div className="section-heading">
@@ -49,6 +60,13 @@ export function Overview({
             {opponents.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         </label>}
+        <label>
+          Mês
+          <select value={month} onChange={(e) => selectMonth(e.target.value)}>
+            <option value="">{from || to ? "Período personalizado" : "Todos os meses"}</option>
+            {months.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+        </label>
         <label>
           De
           <input

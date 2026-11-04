@@ -40,6 +40,26 @@ export function filterMatches(
       (!to || m.data <= to),
   );
 }
+// A month is the inclusive date range from its first to its last day.
+export function monthRange(month: string) {
+  const [year, number] = month.split("-").map(Number);
+  const last = new Date(year, number, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
+}
+export function rangeMonth(from: string, to: string) {
+  const month = from.slice(0, 7);
+  const range = month ? monthRange(month) : undefined;
+  return range?.from === from && range.to === to ? month : "";
+}
+export function monthOptions(matches: Pick<Match, "data">[], selected = "") {
+  const months = new Set(matches.map((m) => m.data.slice(0, 7)));
+  if (selected) months.add(selected);
+  return [...months].sort().reverse().map((value) => {
+    const [year, number] = value.split("-").map(Number);
+    const label = new Date(year, number - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    return { value, label: label.charAt(0).toUpperCase() + label.slice(1) };
+  });
+}
 // IDs belong to each member's collection, not to a shared event.
 export function teamResults<T extends { uid: string; matches: Match[] }>(
   members: T[],

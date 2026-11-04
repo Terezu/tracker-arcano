@@ -220,7 +220,30 @@ test("filtros equivalentes preservam versões, datas inclusivas e decks por memb
   assert.deepEqual(teamResults([], {}).matches, []);
 });
 
-import { normalizeOpponent, opponentOptions, missingOpponent, matchPayload, resultSlices } from "../src/lib/domain.ts";
+import { normalizeOpponent, opponentOptions, missingOpponent, matchPayload, resultSlices, monthRange, rangeMonth, monthOptions } from "../src/lib/domain.ts";
+test("mês cobre do primeiro ao último dia, inclusive anos bissextos", () => {
+  assert.deepEqual(monthRange("2026-10"),{from:"2026-10-01",to:"2026-10-31"});
+  assert.deepEqual(monthRange("2026-02"),{from:"2026-02-01",to:"2026-02-28"});
+  assert.deepEqual(monthRange("2028-02"),{from:"2028-02-01",to:"2028-02-29"});
+  assert.deepEqual(monthRange("2026-12"),{from:"2026-12-01",to:"2026-12-31"});
+  const matches = [teamMatch("before","2-0","2026-09-30"),teamMatch("first","2-0","2026-10-01"),teamMatch("last","2-0","2026-10-31"),teamMatch("after","2-0","2026-11-01")];
+  assert.deepEqual(filterMatches(matches,monthRange("2026-10")).map(m=>m.id),["first","last"]);
+});
+test("mês só é reconhecido quando o período é exatamente o mês inteiro", () => {
+  assert.equal(rangeMonth("2026-10-01","2026-10-31"),"2026-10");
+  assert.equal(rangeMonth("2026-10-01","2026-10-30"),"");
+  assert.equal(rangeMonth("2026-10-02","2026-10-31"),"");
+  assert.equal(rangeMonth("2026-10-01",""),"");
+  assert.equal(rangeMonth("","2026-10-31"),"");
+  assert.equal(rangeMonth("",""),"");
+});
+test("opções de mês são únicas, mais recentes primeiro e preservam a seleção", () => {
+  const matches = [teamMatch("a","2-0","2026-02-10"),teamMatch("b","2-0","2026-10-05"),teamMatch("c","2-0","2026-10-20"),teamMatch("d","2-0","2025-12-01")];
+  assert.deepEqual(monthOptions(matches).map(o=>o.value),["2026-10","2026-02","2025-12"]);
+  assert.equal(monthOptions(matches)[0].label,"Outubro de 2026");
+  assert.deepEqual(monthOptions(matches,"2026-05").map(o=>o.value),["2026-10","2026-05","2026-02","2025-12"]);
+  assert.deepEqual(monthOptions([]),[]);
+});
 test("opponent normalization preserves distinct names and Unicode equivalence", () => {
   for (const [a,b] of [["Krenko","krenko"],["Krenko"," Krenko "],["Edgar Markov","Edgar  Markov"],["EDGAR MARKOV","edgar markov"],["Caf\u00e9","Cafe\u0301"],["Krenko","\uff2brenko"]]) assert.equal(normalizeOpponent(a).key,normalizeOpponent(b).key);
   assert.notEqual(normalizeOpponent("Krenko!").key, normalizeOpponent("Krenko").key);
