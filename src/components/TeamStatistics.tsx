@@ -3,7 +3,6 @@ import { loadTeam } from "../services/team";
 import type { TeamMember } from "../services/team";
 import { errorMessage } from "../services/auth";
 import { teamResults, opponentOptions } from "../lib/domain";
-import { OpponentStatistics } from "./OpponentStatistics";
 import { StatisticsView } from "./StatisticsView";
 export function TeamStatistics() {
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -167,7 +166,6 @@ export function TeamStatistics() {
           </section>
         ))}
       </details>
-      {!activeOpponent && <OpponentStatistics matches={results.matches} />}
     </>
   );
 }

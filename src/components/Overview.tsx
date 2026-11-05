@@ -100,7 +100,7 @@ export function Overview({
         </button>
       </section>
       <StatisticsView matches={filtered} />
-      {!activeOpponent && <OpponentStatistics matches={filtered} />}
+      {deck && !activeOpponent && <OpponentStatistics matches={filtered} />}
     </>
   );
 }
