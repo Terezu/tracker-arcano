@@ -220,7 +220,7 @@ test("filtros equivalentes preservam versões, datas inclusivas e decks por memb
   assert.deepEqual(teamResults([], {}).matches, []);
 });
 
-import { normalizeOpponent, opponentOptions, missingOpponent, matchPayload, resultSlices, monthRange, rangeMonth, monthOptions } from "../src/lib/domain.ts";
+import { normalizeOpponent, opponentKey, opponentGroups, opponentOptions, missingOpponent, matchPayload, resultSlices, monthRange, rangeMonth, monthOptions } from "../src/lib/domain.ts";
 test("mês cobre do primeiro ao último dia, inclusive anos bissextos", () => {
   assert.deepEqual(monthRange("2026-10"),{from:"2026-10-01",to:"2026-10-31"});
   assert.deepEqual(monthRange("2026-02"),{from:"2026-02-01",to:"2026-02-28"});
@@ -249,6 +249,38 @@ test("opponent normalization preserves distinct names and Unicode equivalence", 
   assert.notEqual(normalizeOpponent("Krenko!").key, normalizeOpponent("Krenko").key);
   assert.notEqual(normalizeOpponent("Edgar").key, normalizeOpponent("Edgar Markov").key);
   assert.equal(normalizeOpponent(" KreNKo ").name,"KreNKo");
+});
+test("nomes similares de adversários compartilham a mesma chave", () => {
+  const same = [
+    ["UB Fairies","UB Fadas"],["UB Fairies","Fadas UB"],["UB Fairies","BU Faeries"],["UB Fairies","U/B Fairy"],
+    ["UB Fairies","Dimir Fadas"],["UB Fairies","Azul e Preto Fadas"],["UB Fairies","Blue Black Fairies"],["UB Fairies","UB Fairy's"],
+    ["Mono Red Burn","Mono R Queima"],["Mono Red Burn","Vermelho Burn"],
+    ["Affinity","Afinity"],["Affinity","Afinidade"],["Caw-Gates","Caw Portões"],["Goblins","Goblin"],["Krenko","Krenko!"],["Deck de Elfos","Elves"],
+  ];
+  for (const [a,b] of same) assert.equal(opponentKey(a),opponentKey(b),`${a} = ${b}`);
+  const distinct = [
+    ["UB Fairies","UR Fairies"],["UB Fairies","Fairies"],["UB Fairies","UB Control"],["Edgar","Edgar Markov"],
+    ["Wizards","Lizards"],["Elves","Goblins"],["Mono Red","Mono Green"],["Mono Burn","Burn"],["Rats","Bats"],
+  ];
+  for (const [a,b] of distinct) assert.notEqual(opponentKey(a),opponentKey(b),`${a} != ${b}`);
+  assert.equal(opponentKey(""),"");
+  assert.equal(opponentKey("!!!"),"!!!");
+});
+test("grupos de adversários somam o total, usam a grafia mais comum e deixam sem nome por último", () => {
+  const matches: Match[] = [
+    teamMatch("0","1-1"),teamMatch("00","1-1"),teamMatch("000","1-1"),
+    {...teamMatch("1","2-0"),deckAdversario:"UB Fadas"},
+    {...teamMatch("2","0-2"),deckAdversario:"UB Fairies"},
+    {...teamMatch("3","2-1"),deckAdversario:"ub fairies"},
+    {...teamMatch("4","2-1"),deckAdversario:"Krenko"},
+  ];
+  const groups = opponentGroups(matches);
+  assert.deepEqual(groups.map(g=>[g.label,g.matches.length]),[["UB Fairies",3],["Krenko",1],["Sem deck adversário informado",3]]);
+  assert.deepEqual(groups[0].aliases,["UB Fairies","UB Fadas"]);
+  assert.equal(groups.reduce((n,g)=>n+g.matches.length,0),matches.length);
+  assert.deepEqual(resultSlices(groups[0].matches).map(s=>s.count),[2,1,0]);
+  assert.equal(filterMatches(matches,{opponent:groups[0].value}).length,3);
+  assert.equal(opponentOptions(matches).length,3);
 });
 test("match payload supports create, edit, clearing and legacy absence", () => {
   const legacy = teamMatch("1","2-0");

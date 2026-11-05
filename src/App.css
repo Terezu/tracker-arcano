@@ -296,7 +296,20 @@ main {
   outline: 2px solid #a9c9ff;
   outline-offset: 3px;
 }
-.member-statistics > summary {
+.opponent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 20px;
+}
+.opponent-grid h4 {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+}
+.opponent-grid .muted {
+  overflow-wrap: anywhere;
+}
+.member-statistics > summary,
+.opponent-statistics > summary {
   cursor: pointer;
   padding: 18px;
   margin: 20px 0;
@@ -305,10 +318,12 @@ main {
   border-radius: 14px;
   font-weight: 700;
 }
-.member-statistics > summary::marker {
+.member-statistics > summary::marker,
+.opponent-statistics > summary::marker {
   color: #a9c9ff;
 }
-.member-statistics > summary:focus-visible {
+.member-statistics > summary:focus-visible,
+.opponent-statistics > summary:focus-visible {
   outline: 2px solid #a9c9ff;
   outline-offset: 3px;
 }
@@ -368,7 +383,8 @@ main {
   .app-shell input,
   .app-shell select,
   .app-shell textarea,
-  .member-statistics > summary {
+  .member-statistics > summary,
+  .opponent-statistics > summary {
     min-height: 44px;
     min-width: 44px;
   }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Deck, Match } from "../types";
 import { filterMatches, monthOptions, monthRange, opponentOptions, rangeMonth } from "../lib/domain";
+import { OpponentStatistics } from "./OpponentStatistics";
 import { StatisticsView } from "./StatisticsView";
 export function Overview({
   decks,
@@ -99,6 +100,7 @@ export function Overview({
         </button>
       </section>
       <StatisticsView matches={filtered} />
+      {!activeOpponent && <OpponentStatistics matches={filtered} />}
     </>
   );
 }

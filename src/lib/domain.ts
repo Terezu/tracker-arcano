@@ -4,18 +4,99 @@ export function normalizeOpponent(value = "") {
   const name = value.trim().replace(/\s+/gu, " ");
   return { name, key: name.normalize("NFKC").toLowerCase() };
 }
+const colorOrder = "wubrg";
+const colorNames: Record<string, string> = {
+  white: "w", branco: "w", branca: "w", blue: "u", azul: "u", black: "b", preto: "b", preta: "b",
+  red: "r", vermelho: "r", vermelha: "r", green: "g", verde: "g",
+  azorius: "wu", dimir: "ub", rakdos: "br", gruul: "rg", selesnya: "gw",
+  orzhov: "wb", izzet: "ur", golgari: "bg", boros: "rw", simic: "gu",
+  esper: "wub", grixis: "ubr", jund: "brg", naya: "rgw", bant: "gwu",
+  abzan: "wbg", jeskai: "urw", sultai: "bgu", mardu: "rwb", temur: "gur",
+};
+// English and Portuguese names of the same archetype share the first spelling.
+const archetypes = [
+  "fairies fairy faerie faeries fada fadas", "elves elf elfo elfos", "goblins goblin duende duendes",
+  "affinity afinidade", "burn queima", "control controle", "tokens token ficha fichas",
+  "reanimator reanimador reanimacao", "zombies zombie zumbi zumbis", "vampires vampire vampiro vampiros",
+  "rats rat rato ratos", "spirits spirit espirito espiritos", "angels angel anjo anjos",
+  "dragons dragon dragao dragoes", "knights knight cavaleiro cavaleiros", "soldiers soldier soldado soldados",
+  "wizards wizard mago magos", "merfolk tritao tritoes", "slivers sliver fractius",
+  "walls wall muralha muralhas parede paredes", "gates gate portao portoes", "artifacts artifact artefato artefatos",
+  "sacrifice sacrificio", "madness loucura", "ramp rampa", "aggro agro", "storm tempestade", "cycling ciclagem",
+];
+const archetypeAliases = new Map(archetypes.flatMap(group => {
+  const names = group.split(" ");
+  return names.map(name => [name, names[0]] as const);
+}));
+const ignoredOpponentWords = new Set(["e", "and", "de", "do", "da", "dos", "das", "of", "the", "deck"]);
+function withinOneEdit(a: string, b: string) {
+  if (Math.abs(a.length - b.length) > 1) return false;
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
+function archetypeWord(word: string) {
+  const known = archetypeAliases.get(word);
+  if (known) return known;
+  // Typos only: short words and a different first letter (Lizards/Wizards) are distinct names.
+  if (word.length >= 5)
+    for (const [alias, canonical] of archetypeAliases)
+      if (alias.length >= 5 && alias[0] === word[0] && withinOneEdit(word, alias)) return canonical;
+  return word.length > 3 && word.endsWith("s") && !word.endsWith("ss") ? word.slice(0, -1) : word;
+}
+// Derived on every read, so stored names stay intact and grouping does not depend on the
+// matches in view: "UB Fadas", "Fairies (U/B)" and "Dimir Faeries" share one key.
+export function opponentKey(value = "") {
+  const words = normalizeOpponent(value).key.normalize("NFKD").replace(/[\p{M}'’]/gu, "").match(/[\p{L}\p{N}]+/gu) || [];
+  const colors = new Set<string>();
+  const rest: string[] = [];
+  for (const word of words) {
+    if (ignoredOpponentWords.has(word)) continue;
+    const named = colorNames[word];
+    if (named || (/^[wubrg]+$/.test(word) && new Set(word).size === word.length)) [...(named || word)].forEach(c => colors.add(c));
+    else rest.push(word === "mono" ? word : archetypeWord(word));
+  }
+  const identity = [...colorOrder].filter(c => colors.has(c)).join("");
+  // Mono Red and Red are the same identity; "mono" alone still says something.
+  const others = (identity ? rest.filter(word => word !== "mono") : rest).sort();
+  return [identity, ...others].filter(Boolean).join(" ") || normalizeOpponent(value).key;
+}
 export const missingOpponent = "missing:";
 export function opponentValue(match: Pick<Match, "deckAdversario">) {
-  const key = normalizeOpponent(match.deckAdversario).key;
+  const key = opponentKey(match.deckAdversario);
   return key ? `name:${key}` : missingOpponent;
 }
-export function opponentOptions(matches: Match[]) {
-  const options = new Map<string, string>();
+// Most played first, with unnamed opponents last. The label is the most used spelling.
+export function opponentGroups(matches: Match[]) {
+  const groups = new Map<string, { matches: Match[]; spellings: Map<string, { name: string; count: number }> }>();
   for (const match of matches) {
     const value = opponentValue(match);
-    if (!options.has(value)) options.set(value, normalizeOpponent(match.deckAdversario).name || "Sem deck adversário informado");
+    const group = groups.get(value) || { matches: [] as Match[], spellings: new Map<string, { name: string; count: number }>() };
+    const { name, key } = normalizeOpponent(match.deckAdversario);
+    const spelling = group.spellings.get(key) || { name, count: 0 };
+    spelling.count++;
+    group.spellings.set(key, spelling);
+    group.matches.push(match);
+    groups.set(value, group);
   }
-  return [...options].map(([value, label]) => ({ value, label })).sort((a,b) => a.label.localeCompare(b.label, "pt-BR"));
+  return [...groups].map(([value, group]) => {
+    const spellings = [...group.spellings.values()].sort((a, b) => b.count - a.count);
+    return {
+      value,
+      label: spellings[0].name || "Sem deck adversário informado",
+      aliases: spellings.map(s => s.name),
+      matches: group.matches,
+    };
+  }).sort((a, b) =>
+    Number(a.value === missingOpponent) - Number(b.value === missingOpponent) ||
+    b.matches.length - a.matches.length ||
+    a.label.localeCompare(b.label, "pt-BR"));
+}
+export function opponentOptions(matches: Match[]) {
+  return opponentGroups(matches)
+    .map(({ value, label }) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
 }
 export function matchPayload(value: Omit<Match, "id">) {
   const { deckAdversario, ...rest } = value;
