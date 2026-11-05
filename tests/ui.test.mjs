@@ -507,6 +507,17 @@ test(
         await selectTab("Estatísticas do Time");
         await waitFor('document.querySelector(".member-statistics")');
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        await setField('.filters select',"A");
+        assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        await setField('.filters label:nth-child(2) select',"d");
+        assert.equal(await evaluate('document.querySelector(".opponent-statistics").open'),false);
+        await evaluate('document.querySelector(".opponent-statistics > summary").click()');
+        assert.equal(await evaluate(`[...document.querySelectorAll('.opponent-grid .muted')].reduce((n,p)=>n+parseInt(p.textContent),0)`),Number(await evaluate('document.querySelector(".stat strong").textContent')));
+        await assertLayout("team opponent statistics");
+        await setField('.filters label:nth-child(3) select',"name:krenko");
+        assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        await clickText("Limpar filtros");
+        assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
         await setField('.filters label:nth-child(3) select',"name:krenko");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"2");
         await setField('.filters select',"B");
