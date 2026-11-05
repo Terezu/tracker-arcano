@@ -21,7 +21,7 @@ export function Workspace({ user }: { user: User }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const [revision, setRevision] = useState(0);
-  const [tab, setTab] = useState("Visão geral"),
+  const [tab, setTab] = useState("Visão Geral"),
     [decks, setDecks] = useState<Deck[]>([]),
     [matches, setMatches] = useState<Match[]>([]),
     [history, setHistory] = useState<Match[]>([]),
@@ -104,7 +104,7 @@ export function Workspace({ user }: { user: User }) {
           className={`navigation-items${menuOpen ? " menu-open" : ""}`}
         >
           {[
-            "Visão geral",
+            "Visão Geral",
             "Estatísticas do Time",
             "Meus decks",
             "Partidas",
@@ -154,7 +154,7 @@ export function Workspace({ user }: { user: User }) {
           <LifeCounter decks={decks} loadMembers={listMemberNames} onRegister={deckId => { setRegistration({deckId}); setTab("Partidas"); }} />
         ) : loading ? (
           <p role="status">Carregando seus decks e resultados…</p>
-        ) : error ? null : tab === "Visão geral" ? (
+        ) : error ? null : tab === "Visão Geral" ? (
           <Overview decks={decks} matches={matches} />
         ) : tab === "Estatísticas do Time" ? (
           <TeamStatistics key={revision} />

@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import type { Deck, Match } from "../types";
-import { filterMatches, monthOptions, monthRange, opponentOptions, rangeMonth } from "../lib/domain";
+import { filterMatches, monthOptions, monthRange, opponentOptions, rangeMonth, winStreak } from "../lib/domain";
 import { OpponentStatistics } from "./OpponentStatistics";
+import { Streaks } from "./Streaks";
 import { StatisticsView } from "./StatisticsView";
 export function Overview({
   decks,
@@ -24,6 +25,11 @@ export function Overview({
     () => filterMatches(matches, { deck, opponent: activeOpponent, from, to }),
     [matches, deck, activeOpponent, from, to],
   );
+  // Streaks read the whole history: period and opponent filters never apply.
+  const streaks = useMemo(() => [
+    ...(deck ? [{ label: "Streak de Vitória do Deck", value: winStreak(matches.filter(m => m.deckId === deck)) }] : []),
+    { label: "Streak de Vitórias Geral", value: winStreak(matches) },
+  ], [matches, deck]);
   // The month is derived from De/Até, so the three fields can never disagree.
   const month = rangeMonth(from, to);
   const months = useMemo(
@@ -40,7 +46,7 @@ export function Overview({
       <div className="section-heading">
         <div>
           <p className="eyebrow">VISÃO DO SEU JOGO</p>
-          <h2>Visão geral</h2>
+          <h2>Visão Geral</h2>
           <p className="muted">Inclui decks arquivados e versões anteriores.</p>
         </div>
       </div>
@@ -99,6 +105,7 @@ export function Overview({
           Limpar filtros
         </button>
       </section>
+      <Streaks items={streaks} />
       <StatisticsView matches={filtered} />
       {deck && !activeOpponent && <OpponentStatistics matches={filtered} />}
     </>

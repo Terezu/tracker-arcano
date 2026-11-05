@@ -493,7 +493,11 @@ test(
         assert.equal(await evaluate(`document.querySelector('${monthField}').options[0].textContent`),"Todos os meses");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"8");
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        const streakCards = `[...document.querySelectorAll('.streak')].map(s=>s.querySelector('p').textContent+'='+s.querySelector('strong').textContent)`;
+        // The last match by date in the stub is a 0-0 draw, which resets both streaks.
+        assert.deepEqual(await evaluate(streakCards),["Streak de Vitórias Geral=0"]);
         await setField('.filters select',"d");
+        assert.deepEqual(await evaluate(streakCards),["Streak de Vitória do Deck=0","Streak de Vitórias Geral=0"]);
         assert.equal(await evaluate('document.querySelector(".opponent-statistics").open'),false);
         assert.equal(await evaluate('document.querySelector(".opponent-statistics > summary").textContent'),"Estatísticas por Deck Adversário");
         await evaluate('document.querySelector(".opponent-statistics > summary").click()');
@@ -507,9 +511,13 @@ test(
         await selectTab("Estatísticas do Time");
         await waitFor('document.querySelector(".member-statistics")');
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        assert.ok((await evaluate(streakCards)).length >= 1);
+        assert.ok((await evaluate(streakCards)).every(s=>s.startsWith("Streak de Vitórias Geral · ")));
         await setField('.filters select',"A");
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
+        assert.deepEqual(await evaluate(streakCards),["Streak de Vitórias Geral=0"]);
         await setField('.filters label:nth-child(2) select',"d");
+        assert.deepEqual(await evaluate(streakCards),["Streak de Vitória do Deck=0","Streak de Vitórias Geral=0"]);
         assert.equal(await evaluate('document.querySelector(".opponent-statistics").open'),false);
         await evaluate('document.querySelector(".opponent-statistics > summary").click()');
         assert.equal(await evaluate(`[...document.querySelectorAll('.opponent-grid .muted')].reduce((n,p)=>n+parseInt(p.textContent),0)`),Number(await evaluate('document.querySelector(".stat strong").textContent')));
@@ -560,7 +568,7 @@ test(
         await evaluate(`document.body.click()`);
         await new Promise(resolve => setTimeout(resolve,50));
         assert.equal(await evaluate('globalThis.__wakeRequests'),1);
-        await selectTab("Visão geral");
+        await selectTab("Visão Geral");
         await waitFor('globalThis.__wakeReleases === 1');
       });
       await t.test("marcador: contadores, comandante, desfazer, sessão local e registro somente confirmado", async () => {
@@ -686,7 +694,7 @@ test(
             }
             await navigate("responsive");
             await waitFor('document.querySelector(".stat-grid")');
-            await assertLayout(`${width}px Visão geral`);
+            await assertLayout(`${width}px Visão Geral`);
             if ([390, 1440].includes(width))
               await screenshot(`${width}-overview.png`);
             if (width <= 800) {

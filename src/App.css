@@ -510,3 +510,23 @@ main {
 .pie-tooltip-slot p { margin: .5rem 0; }
 .month { display: block; }
 .month > span { display: block; margin-bottom: .5rem; }
+.streak-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.streak {
+  margin: 0;
+  padding: 22px;
+}
+.streak p {
+  margin: 0 0 8px;
+  color: #a4b3c9;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.streak strong {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 2.2rem;
+}

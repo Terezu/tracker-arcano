@@ -286,3 +286,12 @@ export function resultSlices(matches: Pick<Match, "placar">[]) {
     { key: "draws", label: "Empates", count: s.draws },
   ].map(slice => ({ ...slice, percent: s.total ? slice.count / s.total * 100 : 0 }));
 }
+
+const winningScores = new Set<string>(["2-0", "2-1", "1-0"]);
+// Ordered by match date, then by registration; filters of period and opponent never apply.
+// Every loss or draw resets the sequence, which only grows again with a new win.
+export function winStreak(matches: Pick<Match, "data" | "criadoEm" | "placar">[]) {
+  const ordered = [...matches].sort((a, b) =>
+    a.data.localeCompare(b.data) || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
+  return ordered.reduce((streak, m) => (winningScores.has(m.placar) ? streak + 1 : 0), 0);
+}

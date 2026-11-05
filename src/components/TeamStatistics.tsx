@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { loadTeam } from "../services/team";
 import type { TeamMember } from "../services/team";
 import { errorMessage } from "../services/auth";
-import { teamResults, opponentOptions } from "../lib/domain";
+import { teamResults, opponentOptions, winStreak } from "../lib/domain";
 import { OpponentStatistics } from "./OpponentStatistics";
 import { StatisticsView } from "./StatisticsView";
+import { Streaks } from "./Streaks";
 export function TeamStatistics() {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true),
@@ -44,6 +45,16 @@ export function TeamStatistics() {
     () => teamResults(members, { member, deck, opponent: activeOpponent, from, to }),
     [members, member, deck, activeOpponent, from, to],
   );
+  // Per member, over the whole history: period and opponent filters never apply.
+  const streaks = useMemo(() => {
+    const selected = members.find((m) => m.uid === member);
+    if (!selected)
+      return members.map((m) => ({ key: m.uid, label: `Streak de Vitórias Geral · ${m.nome}`, value: winStreak(m.matches) }));
+    return [
+      ...(deck ? [{ label: "Streak de Vitória do Deck", value: winStreak(selected.matches.filter((m) => m.deckId === deck)) }] : []),
+      { label: "Streak de Vitórias Geral", value: winStreak(selected.matches) },
+    ];
+  }, [members, member, deck]);
   if (loading) return <p role="status">Carregando estatísticas do time…</p>;
   if (error)
     return (
@@ -143,6 +154,7 @@ export function TeamStatistics() {
           Limpar filtros
         </button>
       </section>
+      <Streaks items={streaks} />
       <h3>Estatísticas Gerais do Time</h3>
       <p className="muted">
         Cada registro de partida de um membro conta uma vez. Os filtros se

@@ -326,3 +326,17 @@ test("pie counts and percentages reflect filters, draws and empty results", () =
   assert.equal(resultSlices([{placar:"0-0"}])[2].percent,100);
   assert.equal(resultSlices(filterMatches(confrontationMatches,{deck:"muldrotha"}))[0].percent,100);
 });
+import { winStreak } from "../src/lib/domain.ts";
+test("streak soma só 2-0, 2-1 e 1-0 e zera em derrota ou empate", () => {
+  const at = (id: string, placar: Score, data: string, criadoEm = `${data}T12:00:00.000Z`): Match => ({...teamMatch(id,placar,data),criadoEm});
+  assert.equal(winStreak([]),0);
+  assert.equal(winStreak([at("a","2-0","2026-10-01"),at("b","2-1","2026-10-02"),at("c","1-0","2026-10-03")]),3);
+  for (const reset of ["1-1","0-0","1-2","0-2","0-1"] as const)
+    assert.equal(winStreak([at("a","2-0","2026-10-01"),at("b",reset,"2026-10-02")]),0,reset);
+  assert.equal(winStreak([at("a","2-0","2026-10-01"),at("b","0-2","2026-10-02"),at("c","2-1","2026-10-03")]),1);
+  // A match registered later with an older date takes its place by match date.
+  assert.equal(winStreak([at("a","2-0","2026-10-02"),at("b","2-0","2026-10-03"),at("c","0-2","2026-10-01","2026-10-10T00:00:00.000Z")]),2);
+  // Same day: registration order decides which result is the last one.
+  assert.equal(winStreak([at("a","0-2","2026-10-01","2026-10-01T10:00:00.000Z"),at("b","2-0","2026-10-01","2026-10-01T11:00:00.000Z")]),1);
+  assert.equal(winStreak([at("b","2-0","2026-10-01","2026-10-01T11:00:00.000Z"),at("a","0-2","2026-10-01","2026-10-01T12:00:00.000Z")]),0);
+});
