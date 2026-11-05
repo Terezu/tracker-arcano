@@ -33,13 +33,15 @@ export function TeamStatistics() {
       active = false;
     };
   }, [attempt]);
-  const results = useMemo(
-    () => teamResults(members, { member, deck, opponent, from, to }),
-    [members, member, deck, opponent, from, to],
-  );
   const opponents = useMemo(
-    () => opponentOptions(members.flatMap(m => m.matches)),
-    [members],
+    () => opponentOptions(teamResults(members, { member, deck, from, to }).matches),
+    [members, member, deck, from, to],
+  );
+  // An opponent with no matches in the other filters falls back to "Todos".
+  const activeOpponent = opponents.some(o => o.value === opponent) ? opponent : "";
+  const results = useMemo(
+    () => teamResults(members, { member, deck, opponent: activeOpponent, from, to }),
+    [members, member, deck, activeOpponent, from, to],
   );
   if (loading) return <p role="status">Carregando estatísticas do time…</p>;
   if (error)
@@ -105,7 +107,7 @@ export function TeamStatistics() {
           </select>
         </label>
         <label>Deck adversário
-          <select value={opponent} onChange={e => setOpponent(e.target.value)}>
+          <select value={activeOpponent} onChange={e => setOpponent(e.target.value)}>
             <option value="">Todos os decks adversários</option>
             {opponents.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>

@@ -13,13 +13,15 @@ export function Overview({
   const [deck, setDeck] = useState(""),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const filtered = useMemo(
-    () => filterMatches(matches, { deck, opponent, from, to }),
-    [matches, deck, opponent, from, to],
-  );
   const opponents = useMemo(
-    () => opponentOptions(matches.filter(m => m.deckId === deck)),
-    [matches, deck],
+    () => opponentOptions(filterMatches(matches, { deck, from, to })),
+    [matches, deck, from, to],
+  );
+  // An opponent with no matches in the selected period falls back to "Geral".
+  const activeOpponent = opponents.some(o => o.value === opponent) ? opponent : "";
+  const filtered = useMemo(
+    () => filterMatches(matches, { deck, opponent: activeOpponent, from, to }),
+    [matches, deck, activeOpponent, from, to],
   );
   // The month is derived from De/Até, so the three fields can never disagree.
   const month = rangeMonth(from, to);
@@ -55,7 +57,7 @@ export function Overview({
           </select>
         </label>
         {deck && <label>Deck adversário
-          <select value={opponent} onChange={e => setOpponent(e.target.value)}>
+          <select value={activeOpponent} onChange={e => setOpponent(e.target.value)}>
             <option value="">Geral</option>
             {opponents.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
