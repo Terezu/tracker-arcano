@@ -516,17 +516,21 @@ main {
   gap: 16px;
   margin-bottom: 16px;
 }
+/* Reds from the losses slice and alerts, over the navy panel so it stays in the theme. */
 .streak {
   margin: 0;
   padding: 22px;
+  background: linear-gradient(135deg, #3a1a2a 0%, #241a2c 55%, #131f32 100%);
+  border-color: #6b2c3f;
 }
 .streak p {
   margin: 0 0 8px;
-  color: #a4b3c9;
+  color: #f0a8b3;
   font-size: 0.85rem;
   overflow-wrap: anywhere;
 }
 .streak strong {
   font-family: "Space Grotesk", sans-serif;
   font-size: 2.2rem;
+  color: #ff7e90;
 }
