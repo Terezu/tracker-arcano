@@ -369,3 +369,27 @@ test("cartões de streak: deck usa período no recorde; sem deck mostra o líder
   assert.deepEqual(streakItems(decks,matches,{}),[{label:"Maior Streak Atual entre Decks",value:2,detail:"Redness"}]);
   assert.deepEqual(streakItems(decks,[],{}),[{label:"Maior Streak Atual entre Decks",value:0,detail:undefined}]);
 });
+import { retryChunk } from "../src/lib/chunkRetry.ts";
+test("aba com arquivo antigo recarrega uma vez e nunca entra em loop", async () => {
+  const memory = () => { const m = new Map<string,string>(); return { getItem:(k:string)=>m.get(k) ?? null, setItem:(k:string,v:string)=>{m.set(k,v);}, removeItem:(k:string)=>{m.delete(k);}, size:()=>m.size }; };
+  const failing = () => Promise.reject(new Error("chunk"));
+  const storage = memory();
+  let reloads = 0;
+  const pending = retryChunk(failing, storage, () => { reloads++; });
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(reloads, 1);
+  void pending;
+  // After the reload the flag is set, so a second failure is reported instead of reloading.
+  await assert.rejects(retryChunk(failing, storage, () => { reloads++; }), /chunk/);
+  assert.equal(reloads, 1);
+  assert.equal(storage.size(), 0);
+  // A successful load clears the flag for future deploys.
+  storage.setItem("tracker-arcano:chunk-reload","1");
+  assert.equal(await retryChunk(() => Promise.resolve("ok"), storage, () => { reloads++; }), "ok");
+  assert.equal(storage.size(), 0);
+  // Blocked storage: no reload at all, the error surfaces.
+  const blocked = { getItem(){ throw new Error("blocked"); }, setItem(){ throw new Error("blocked"); }, removeItem(){ throw new Error("blocked"); } };
+  await assert.rejects(retryChunk(failing, blocked, () => { reloads++; }), /chunk/);
+  await assert.rejects(retryChunk(failing, undefined, () => { reloads++; }), /chunk/);
+  assert.equal(reloads, 1);
+});

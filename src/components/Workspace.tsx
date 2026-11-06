@@ -10,13 +10,15 @@ import {
 } from "../services/data";
 import { errorMessage, logout } from "../services/auth";
 import { LifeCounter } from "../life/LifeCounter";
+import { retryChunk } from "../lib/chunkRetry";
+import { TabErrorBoundary } from "./TabErrorBoundary";
 // Each tab downloads its code the first time it opens. The life counter stays eager:
 // it is shared with marcador.html and kept in the offline cache.
-const Decks = lazy(() => import("./Decks").then((m) => ({ default: m.Decks })));
-const Matches = lazy(() => import("./Matches").then((m) => ({ default: m.Matches })));
-const Overview = lazy(() => import("./Overview").then((m) => ({ default: m.Overview })));
-const TeamStatistics = lazy(() => import("./TeamStatistics").then((m) => ({ default: m.TeamStatistics })));
-const Profile = lazy(() => import("./Profile").then((m) => ({ default: m.Profile })));
+const Decks = lazy(() => retryChunk(() => import("./Decks")).then((m) => ({ default: m.Decks })));
+const Matches = lazy(() => retryChunk(() => import("./Matches")).then((m) => ({ default: m.Matches })));
+const Overview = lazy(() => retryChunk(() => import("./Overview")).then((m) => ({ default: m.Overview })));
+const TeamStatistics = lazy(() => retryChunk(() => import("./TeamStatistics")).then((m) => ({ default: m.TeamStatistics })));
+const Profile = lazy(() => retryChunk(() => import("./Profile")).then((m) => ({ default: m.Profile })));
 import { listMemberNames } from "../services/memberNames";
 export function Workspace({ user }: { user: User }) {
   const [registration, setRegistration] = useState<{ deckId: string }>();
@@ -152,6 +154,7 @@ export function Workspace({ user }: { user: User }) {
             <button onClick={synchronize}>Tentar novamente</button>
           </div>
         )}
+        <TabErrorBoundary key={tab}>
         <Suspense fallback={<p role="status">Carregando…</p>}>
         {tab === "Marcador de Vida" ? (
           <LifeCounter decks={decks} loadMembers={listMemberNames} onRegister={deckId => { setRegistration({deckId}); setTab("Partidas"); }} />
@@ -180,6 +183,7 @@ export function Workspace({ user }: { user: User }) {
           <Profile user={user} />
         )}
         </Suspense>
+        </TabErrorBoundary>
       </main>
     </>
   );
