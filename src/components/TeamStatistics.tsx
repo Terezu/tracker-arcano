@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadTeam } from "../services/team";
 import type { TeamMember } from "../services/team";
 import { errorMessage } from "../services/auth";
-import { teamResults, opponentOptions, winStreak } from "../lib/domain";
+import { teamResults, opponentOptions, streakItems } from "../lib/domain";
 import { OpponentStatistics } from "./OpponentStatistics";
 import { StatisticsView } from "./StatisticsView";
 import { Streaks } from "./Streaks";
@@ -45,16 +45,16 @@ export function TeamStatistics() {
     () => teamResults(members, { member, deck, opponent: activeOpponent, from, to }),
     [members, member, deck, activeOpponent, from, to],
   );
-  // Per member, over the whole history: period and opponent filters never apply.
+  // Each member is computed alone, with the same rules as the Overview.
   const streaks = useMemo(() => {
     const selected = members.find((m) => m.uid === member);
-    if (!selected)
-      return members.map((m) => ({ key: m.uid, label: `Streak de Vitórias Geral · ${m.nome}`, value: winStreak(m.matches) }));
-    return [
-      ...(deck ? [{ label: "Streak de Vitória do Deck", value: winStreak(selected.matches.filter((m) => m.deckId === deck)) }] : []),
-      { label: "Streak de Vitórias Geral", value: winStreak(selected.matches) },
-    ];
-  }, [members, member, deck]);
+    if (selected) return streakItems(selected.decks, selected.matches, { deck, from, to });
+    return members.map((m) => {
+      const [leader] = streakItems(m.decks, m.matches, {});
+      return { ...leader, key: m.uid, label: `${leader.label} · ${m.nome}` };
+    });
+  }, [members, member, deck, from, to]);
+
   if (loading) return <p role="status">Carregando estatísticas do time…</p>;
   if (error)
     return (

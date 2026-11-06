@@ -326,7 +326,7 @@ test("pie counts and percentages reflect filters, draws and empty results", () =
   assert.equal(resultSlices([{placar:"0-0"}])[2].percent,100);
   assert.equal(resultSlices(filterMatches(confrontationMatches,{deck:"muldrotha"}))[0].percent,100);
 });
-import { winStreak } from "../src/lib/domain.ts";
+import { winStreak, bestWinStreak, currentStreakLeader, streakItems } from "../src/lib/domain.ts";
 test("streak soma só 2-0, 2-1 e 1-0 e zera em derrota ou empate", () => {
   const at = (id: string, placar: Score, data: string, criadoEm = `${data}T12:00:00.000Z`): Match => ({...teamMatch(id,placar,data),criadoEm});
   assert.equal(winStreak([]),0);
@@ -339,4 +339,33 @@ test("streak soma só 2-0, 2-1 e 1-0 e zera em derrota ou empate", () => {
   // Same day: registration order decides which result is the last one.
   assert.equal(winStreak([at("a","0-2","2026-10-01","2026-10-01T10:00:00.000Z"),at("b","2-0","2026-10-01","2026-10-01T11:00:00.000Z")]),1);
   assert.equal(winStreak([at("b","2-0","2026-10-01","2026-10-01T11:00:00.000Z"),at("a","0-2","2026-10-01","2026-10-01T12:00:00.000Z")]),0);
+});
+const streakMatch = (id: string, placar: Score, data: string, deckId = "d"): Match => ({...teamMatch(id,placar,data,deckId),criadoEm:`${data}T12:00:00.000Z`});
+test("maior streak é a sequência mais longa; a atual pode ser menor", () => {
+  const matches = [streakMatch("a","2-0","2026-01-01"),streakMatch("b","2-1","2026-01-02"),streakMatch("c","1-0","2026-01-03"),streakMatch("d","0-1","2026-01-04"),streakMatch("e","2-0","2026-01-05")];
+  assert.equal(bestWinStreak(matches),3);
+  assert.equal(winStreak(matches),1);
+  assert.equal(bestWinStreak([]),0);
+  assert.equal(bestWinStreak([streakMatch("a","1-1","2026-01-01")]),0);
+});
+test("líder entre decks: só ativos, todos os empatados e ninguém no zero", () => {
+  const decks = [{id:"a",nome:"Redness",arquivado:false},{id:"b",nome:"Fadas",arquivado:false},{id:"c",nome:"Antigo",arquivado:true},{id:"z",nome:"Sem partidas",arquivado:false}];
+  const matches = [
+    streakMatch("1","2-0","2026-01-01","a"),streakMatch("2","2-0","2026-01-02","a"),
+    streakMatch("3","2-0","2026-01-01","b"),streakMatch("4","2-1","2026-01-03","b"),
+    streakMatch("5","2-0","2026-01-01","c"),streakMatch("6","2-0","2026-01-02","c"),streakMatch("7","2-0","2026-01-03","c"),
+  ];
+  assert.deepEqual(currentStreakLeader(decks,matches),{value:2,decks:["Redness","Fadas"]});
+  assert.deepEqual(currentStreakLeader(decks,[...matches,streakMatch("8","0-2","2026-01-04","b")]),{value:2,decks:["Redness"]});
+  assert.deepEqual(currentStreakLeader(decks,[streakMatch("9","0-0","2026-01-01","a")]),{value:0,decks:[]});
+  assert.deepEqual(currentStreakLeader([],[]),{value:0,decks:[]});
+});
+test("cartões de streak: deck usa período no recorde; sem deck mostra o líder", () => {
+  const decks = [{id:"d",nome:"Redness",arquivado:false},{id:"e",nome:"Fadas",arquivado:false}];
+  const matches = [streakMatch("1","2-0","2026-01-10"),streakMatch("2","2-0","2026-01-20"),streakMatch("3","0-2","2026-02-01"),streakMatch("4","2-0","2026-02-10"),{...streakMatch("5","2-0","2026-02-11"),deckAdversario:"Krenko"},streakMatch("6","0-2","2026-02-12","e")];
+  assert.deepEqual(streakItems(decks,matches,{deck:"d"}).map(i=>[i.label,i.value]),[["Maior Streak de Vitória",2],["Streak de Vitória Atual",2]]);
+  assert.deepEqual(streakItems(decks,matches,{deck:"d",from:"2026-02-01",to:"2026-02-28"}).map(i=>i.value),[2,2]);
+  assert.deepEqual(streakItems(decks,matches,{deck:"d",from:"2026-02-01",to:"2026-02-10"}).map(i=>i.value),[1,2]);
+  assert.deepEqual(streakItems(decks,matches,{}),[{label:"Maior Streak Atual entre Decks",value:2,detail:"Redness"}]);
+  assert.deepEqual(streakItems(decks,[],{}),[{label:"Maior Streak Atual entre Decks",value:0,detail:undefined}]);
 });

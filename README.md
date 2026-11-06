@@ -1,6 +1,8 @@
 # Tracker Arcano · Lontras Arcanas
 
-Aplicativo de uso diário para decktracking Pauper, em React + TypeScript + Vite, com Firebase Authentication e Firestore. Interface em português, responsiva, azul-marinho e vermelho. A configuração original de `src/lib/firebase.ts` foi preservada. Não foram modificados contas, documentos ou regras remotos, e nenhum deploy foi executado.
+Aplicativo de uso diário para decktracking Pauper, em React + TypeScript + Vite, com Firebase Authentication e Firestore. Interface em português, responsiva, azul-marinho e vermelho. A configuração original de `src/lib/firebase.ts` foi preservada.
+
+O site está publicado no Firebase Hosting em <https://tracker-arcano.web.app>, atualizado com `npm run build` e `npx firebase deploy --only hosting`. As notas de entrega mais abaixo que dizem "nenhum deploy foi executado" descrevem apenas aquela entrega; o estado das regras do Firestore publicadas deve ser conferido no console antes de publicar `firestore.rules`.
 
 ## Executar
 
@@ -31,6 +33,10 @@ As melhorias de confrontos, filtros combinados e gráficos de pizza estão docum
 - IDs permanentes, versões imutáveis e atualização atômica da versão atual por transação. Renomear, arquivar ou restaurar mantém partidas e listas anteriores. Não existe exclusão de decks ou versões.
 - Registro dos oito placares, datas locais, correção de data/placar e exclusão de partida com confirmação. A correção preserva deck, versão e data original de criação. “Ver versão usada” abre a lista histórica.
 - Estatísticas gerais e por deck, incluindo todas as versões e decks arquivados, filtros de período, jogos individuais, distribuição e evolução mensal com números e legendas. Sem dados fictícios nas contas reais.
+- **Deck adversário agrupado:** nomes similares contam como o mesmo adversário nos filtros, nas sugestões e nos gráficos. Acentos, pontuação, ordem das palavras e plural são ignorados; cores são unificadas (`UB`, `BU`, `U/B`, `Dimir`, `Azul e Preto`); arquétipos conhecidos são traduzidos entre inglês e português (`Fairies`/`Fadas`) e um erro de digitação nessas palavras é corrigido. O nome digitado continua salvo como foi escrito. Detalhes em [STATISTICS_UPDATE.md](STATISTICS_UPDATE.md).
+- **Estatísticas por Deck Adversário:** seção retrátil com um gráfico de pizza por adversário, em Visão Geral e em Estatísticas do Time, quando há um deck selecionado e o adversário está em "Geral"/"Todos". Cada cartão lista as grafias agrupadas.
+- **Streaks de vitória:** 2-0, 2-1 e 1-0 somam; derrotas e empates zeram, e a contagem só volta a subir com nova vitória. A ordem é a data do jogo, com desempate pela ordem de registro; o deck adversário nunca conta. Com um deck selecionado aparecem a **Maior Streak de Vitória** (dentro do período filtrado) e a **Streak de Vitória Atual** (todo o histórico). Sem deck, aparece a **Maior Streak Atual entre Decks**, entre os decks ativos, com o nome de todos os empatados (em 0, nenhum nome). Em Estatísticas do Time a mesma regra vale por membro; em "Todos os membros", um cartão por membro. Em Meus decks, cada deck mostra a atual e a maior de todo o histórico. Nada é gravado: tudo é recalculado a partir das partidas.
+- As abas carregam o próprio código quando abertas pela primeira vez; o Marcador de Vida fica no pacote inicial porque também é usado offline.
 
 ## Autorizar a conta existente e adicionar integrantes
 
@@ -107,7 +113,7 @@ Referências oficiais consultadas em 05/10/2026:
 
 ## Publicação manual no Firebase Hosting (Spark)
 
-Nenhum comando abaixo foi executado para publicar. Prepare membros antes de aplicar regras, para não bloquear integrantes existentes. Revise e salve cópia das regras remotas atuais pelo console antes de substituí-las.
+O hosting já foi publicado com estes comandos. Prepare membros antes de aplicar regras, para não bloquear integrantes existentes. Revise e salve cópia das regras remotas atuais pelo console antes de substituí-las.
 
 ```sh
 npm run build

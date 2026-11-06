@@ -494,10 +494,16 @@ test(
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"8");
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
         const streakCards = `[...document.querySelectorAll('.streak')].map(s=>s.querySelector('p').textContent+'='+s.querySelector('strong').textContent)`;
-        // The last match by date in the stub is a 0-0 draw, which resets both streaks.
-        assert.deepEqual(await evaluate(streakCards),["Streak de Vitórias Geral=0"]);
+        // Stub history of deck "d" by date: 2-0, 2-1, 1-1, 1-2, 0-2, 1-0, 0-1, 0-0. The last draw
+        // resets the current streak; the record is the opening 2-0, 2-1. "Outro deck" has no matches.
+        assert.deepEqual(await evaluate(streakCards),["Maior Streak Atual entre Decks=0"]);
+        assert.equal(await evaluate('!!document.querySelector(".streak small")'),false);
         await setField('.filters select',"d");
-        assert.deepEqual(await evaluate(streakCards),["Streak de Vitória do Deck=0","Streak de Vitórias Geral=0"]);
+        assert.deepEqual(await evaluate(streakCards),["Maior Streak de Vitória=2","Streak de Vitória Atual=0"]);
+        // The record respects the period; the current streak does not.
+        await setField('.filters label:nth-child(3) select',"2026-01");
+        assert.deepEqual(await evaluate(streakCards),["Maior Streak de Vitória=1","Streak de Vitória Atual=0"]);
+        await setField('.filters label:nth-child(3) select',"");
         assert.equal(await evaluate('document.querySelector(".opponent-statistics").open'),false);
         assert.equal(await evaluate('document.querySelector(".opponent-statistics > summary").textContent'),"Estatísticas por Deck Adversário");
         await evaluate('document.querySelector(".opponent-statistics > summary").click()');
@@ -511,13 +517,13 @@ test(
         await selectTab("Estatísticas do Time");
         await waitFor('document.querySelector(".member-statistics")');
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
-        assert.ok((await evaluate(streakCards)).length >= 1);
-        assert.ok((await evaluate(streakCards)).every(s=>s.startsWith("Streak de Vitórias Geral · ")));
+        assert.equal((await evaluate(streakCards)).length,2);
+        assert.ok((await evaluate(streakCards)).every(s=>s.startsWith("Maior Streak Atual entre Decks · ")));
         await setField('.filters select',"A");
         assert.equal(await evaluate('!!document.querySelector(".opponent-statistics")'),false);
-        assert.deepEqual(await evaluate(streakCards),["Streak de Vitórias Geral=0"]);
+        assert.deepEqual(await evaluate(streakCards),["Maior Streak Atual entre Decks=0"]);
         await setField('.filters label:nth-child(2) select',"d");
-        assert.deepEqual(await evaluate(streakCards),["Streak de Vitória do Deck=0","Streak de Vitórias Geral=0"]);
+        assert.deepEqual(await evaluate(streakCards),["Maior Streak de Vitória=2","Streak de Vitória Atual=0"]);
         assert.equal(await evaluate('document.querySelector(".opponent-statistics").open'),false);
         await evaluate('document.querySelector(".opponent-statistics > summary").click()');
         assert.equal(await evaluate(`[...document.querySelectorAll('.opponent-grid .muted')].reduce((n,p)=>n+parseInt(p.textContent),0)`),Number(await evaluate('document.querySelector(".stat strong").textContent')));
@@ -529,13 +535,18 @@ test(
         await setField('.filters label:nth-child(3) select',"name:krenko");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"2");
         await setField('.filters select',"B");
-        assert.equal(await evaluate('document.querySelector(".filters label:nth-child(3) select").value'),"name:krenko");
+        // B has no matches against Krenko, so the filter shows "Todos" while B is selected.
+        assert.equal(await evaluate('document.querySelector(".filters label:nth-child(3) select").value'),"");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"0");
         assert.equal(await evaluate('document.querySelectorAll(".result-pie").length'),0);
         await setField('.filters select',"A");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"2");
         await clickText("Limpar filtros");
         assert.equal(await evaluate('document.querySelector(".stat strong").textContent'),"8");
+        await selectTab("Meus decks");
+        await waitFor('document.querySelector(".deck-streaks")');
+        assert.deepEqual(await evaluate('[...document.querySelectorAll(".deck-streaks")].map(p=>p.textContent)'),["Streak de Vitória Atual: 0Maior Streak de Vitória: 2","Streak de Vitória Atual: 0Maior Streak de Vitória: 0"]);
+        await assertLayout("deck streaks");
         await selectTab("Partidas");
         await waitFor('document.querySelector(".match-form")');
         assert.ok(await evaluate('document.querySelector("table").innerText.includes("Krenko")'));

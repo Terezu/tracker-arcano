@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import type { QueryDocumentSnapshot } from "firebase/firestore";
 import type { Deck, Match } from "../types";
@@ -9,12 +9,14 @@ import {
   matchPage,
 } from "../services/data";
 import { errorMessage, logout } from "../services/auth";
-import { Decks } from "./Decks";
-import { Matches } from "./Matches";
-import { Overview } from "./Overview";
-import { TeamStatistics } from "./TeamStatistics";
-import { Profile } from "./Profile";
 import { LifeCounter } from "../life/LifeCounter";
+// Each tab downloads its code the first time it opens. The life counter stays eager:
+// it is shared with marcador.html and kept in the offline cache.
+const Decks = lazy(() => import("./Decks").then((m) => ({ default: m.Decks })));
+const Matches = lazy(() => import("./Matches").then((m) => ({ default: m.Matches })));
+const Overview = lazy(() => import("./Overview").then((m) => ({ default: m.Overview })));
+const TeamStatistics = lazy(() => import("./TeamStatistics").then((m) => ({ default: m.TeamStatistics })));
+const Profile = lazy(() => import("./Profile").then((m) => ({ default: m.Profile })));
 import { listMemberNames } from "../services/memberNames";
 export function Workspace({ user }: { user: User }) {
   const [registration, setRegistration] = useState<{ deckId: string }>();
@@ -150,6 +152,7 @@ export function Workspace({ user }: { user: User }) {
             <button onClick={synchronize}>Tentar novamente</button>
           </div>
         )}
+        <Suspense fallback={<p role="status">Carregando…</p>}>
         {tab === "Marcador de Vida" ? (
           <LifeCounter decks={decks} loadMembers={listMemberNames} onRegister={deckId => { setRegistration({deckId}); setTab("Partidas"); }} />
         ) : loading ? (
@@ -159,7 +162,7 @@ export function Workspace({ user }: { user: User }) {
         ) : tab === "Estatísticas do Time" ? (
           <TeamStatistics key={revision} />
         ) : tab === "Meus decks" ? (
-          <Decks uid={user.uid} decks={decks} refresh={refresh} />
+          <Decks uid={user.uid} decks={decks} matches={matches} refresh={refresh} />
         ) : tab === "Partidas" ? (
           <Matches
             key={registration ? `life-${registration.deckId}` : "normal"}
@@ -176,6 +179,7 @@ export function Workspace({ user }: { user: User }) {
         ) : (
           <Profile user={user} />
         )}
+        </Suspense>
       </main>
     </>
   );

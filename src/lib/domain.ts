@@ -1,4 +1,4 @@
-import type { Entry, Match } from "../types";
+import type { Deck, Entry, Match } from "../types";
 // Comparison always derives from the display name, including legacy documents.
 export function normalizeOpponent(value = "") {
   const name = value.trim().replace(/\s+/gu, " ");
@@ -288,10 +288,49 @@ export function resultSlices(matches: Pick<Match, "placar">[]) {
 }
 
 const winningScores = new Set<string>(["2-0", "2-1", "1-0"]);
-// Ordered by match date, then by registration; filters of period and opponent never apply.
-// Every loss or draw resets the sequence, which only grows again with a new win.
-export function winStreak(matches: Pick<Match, "data" | "criadoEm" | "placar">[]) {
+type StreakMatch = Pick<Match, "data" | "criadoEm" | "placar">;
+// Ordered by match date, then by registration. Every loss or draw resets the sequence,
+// which only grows again with a new win. Callers choose which matches apply.
+function streakRuns(matches: StreakMatch[]) {
   const ordered = [...matches].sort((a, b) =>
     a.data.localeCompare(b.data) || (a.criadoEm || "").localeCompare(b.criadoEm || ""));
-  return ordered.reduce((streak, m) => (winningScores.has(m.placar) ? streak + 1 : 0), 0);
+  let current = 0, best = 0;
+  for (const m of ordered) {
+    current = winningScores.has(m.placar) ? current + 1 : 0;
+    best = Math.max(best, current);
+  }
+  return { current, best };
+}
+export function winStreak(matches: StreakMatch[]) {
+  return streakRuns(matches).current;
+}
+export function bestWinStreak(matches: StreakMatch[]) {
+  return streakRuns(matches).best;
+}
+// Highest current streak among active decks; every tied deck is named. Nobody leads at 0.
+export function currentStreakLeader(decks: Pick<Deck, "id" | "nome" | "arquivado">[], matches: Pick<Match, "deckId" | "data" | "criadoEm" | "placar">[]) {
+  const values = decks.filter((d) => !d.arquivado).map((d) => ({
+    nome: d.nome,
+    value: winStreak(matches.filter((m) => m.deckId === d.id)),
+  }));
+  const value = Math.max(0, ...values.map((v) => v.value));
+  return { value, decks: value ? values.filter((v) => v.value === value).map((v) => v.nome) : [] };
+}
+// Deck selected: its record within the period and its current streak (whole history).
+// No deck: the highest current streak among active decks, naming the decks.
+// The opponent filter never applies to streaks.
+export function streakItems(
+  decks: Pick<Deck, "id" | "nome" | "arquivado">[],
+  matches: Match[],
+  { deck = "", from = "", to = "" }: { deck?: string; from?: string; to?: string },
+) {
+  if (deck) {
+    const own = matches.filter((m) => m.deckId === deck);
+    return [
+      { label: "Maior Streak de Vitória", value: bestWinStreak(filterMatches(own, { from, to })) },
+      { label: "Streak de Vitória Atual", value: winStreak(own) },
+    ];
+  }
+  const leader = currentStreakLeader(decks, matches);
+  return [{ label: "Maior Streak Atual entre Decks", value: leader.value, detail: leader.decks.join(", ") || undefined }];
 }

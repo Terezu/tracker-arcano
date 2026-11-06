@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import type { Deck, Validation, Version } from "../types";
+import type { Deck, Match, Validation, Version } from "../types";
+import { bestWinStreak, winStreak } from "../lib/domain";
 import {
   archiveDeck,
   getVersion,
@@ -12,10 +13,12 @@ import { validateList } from "../services/scryfall";
 export function Decks({
   uid,
   decks,
+  matches,
   refresh,
 }: {
   uid: string;
   decks: Deck[];
+  matches: Match[];
   refresh: () => Promise<void>;
 }) {
   const [editing, setEditing] = useState<Deck>(),
@@ -106,6 +109,16 @@ export function Decks({
             <span className="badge">{d.arquivado ? "Arquivado" : "Ativo"}</span>
             <h3>{d.nome}</h3>
             <p className="muted">Histórico preservado por versão</p>
+            {(() => {
+              // Whole history of the deck, archived decks included.
+              const own = matches.filter((m) => m.deckId === d.id);
+              return (
+                <p className="deck-streaks">
+                  <span>Streak de Vitória Atual: <strong>{winStreak(own)}</strong></span>
+                  <span>Maior Streak de Vitória: <strong>{bestWinStreak(own)}</strong></span>
+                </p>
+              );
+            })()}
             <div className="actions">
               <button
                 className="secondary"
